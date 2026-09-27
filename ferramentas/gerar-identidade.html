@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gerar identidade — Inspeções Infra</title>
+<style>
+  body { font-family: Calibri, Arial, sans-serif; background: #F4F7F9; color: #1A1F2E;
+         margin: 0; padding: 24px; line-height: 1.5; }
+  .caixa { max-width: 860px; margin: 0 auto; background: #FFF; border: 1px solid #DDE3E8;
+           border-radius: 8px; padding: 24px; box-shadow: 0 1px 3px rgba(26,31,46,.1); }
+  h1 { font-size: 22px; margin: 0 0 8px; }
+  h2 { font-size: 17px; margin: 26px 0 8px; }
+  p { color: #5A6672; }
+  .solta { border: 2px dashed #26A69A; border-radius: 8px; padding: 34px; text-align: center;
+           background: #F1FAF9; cursor: pointer; margin: 18px 0; }
+  .solta.ativa { background: #E1F4F1; }
+  .previa { background: #1A1F2E; padding: 20px; border-radius: 8px; text-align: center; margin: 14px 0; }
+  .previa img { max-height: 60px; }
+  .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .arquivo { border: 1px solid #DDE3E8; border-radius: 6px; padding: 12px; text-align: center; background: #FBFDFD; }
+  .arquivo img { max-width: 100%; height: auto; border-radius: 4px; }
+  .arquivo small { display: block; color: #5A6672; font-size: 12px; margin: 6px 0; word-break: break-all; }
+  button, .botao { display: inline-block; background: #26A69A; color: #FFF; border: 0; border-radius: 6px;
+           padding: 10px 16px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
+           text-decoration: none; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  ol li { margin-bottom: 6px; }
+  code { background: #EEF2F5; padding: 1px 5px; border-radius: 4px; font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="caixa">
+  <h1>Encaixar a logo oficial no aplicativo</h1>
+  <p>Esta página roda no seu navegador, sem enviar nada para lugar nenhum. Ela gera os
+     arquivos de identidade a partir da logo oficial da EDP.</p>
+
+  <div class="solta" id="area">
+    Arraste aqui o arquivo <b>EDP_Group_MasterLogo_RGB_Dark_NEG.png</b><br>
+    <small>(ou clique para escolher)</small>
+    <input type="file" id="arquivo" accept="image/png,image/svg+xml,image/jpeg" hidden>
+  </div>
+
+  <div id="resultado" hidden>
+    <h2>Prévia sobre o fundo escuro</h2>
+    <div class="previa"><img id="previa" alt="Prévia da logo"></div>
+
+    <h2>Arquivos gerados — baixe todos</h2>
+    <p>Depois de baixar, substitua os arquivos nas pastas indicadas e suba a versão em
+       <code>service-worker.js</code> e <code>config.js</code>.</p>
+    <div class="grade" id="saidas"></div>
+  </div>
+
+  <h2>Onde cada arquivo vai</h2>
+  <ol>
+    <li><code>edp-logo-neg.png</code> → pasta <code>assets/</code></li>
+    <li><code>logo-edp-base64.js</code> → pasta <code>assets/</code> (é o que o PDF usa)</li>
+    <li><code>icon-192.png</code>, <code>icon-512.png</code>, <code>icon-512-maskable.png</code>,
+        <code>apple-touch-icon.png</code> → pasta <code>icons/</code></li>
+  </ol>
+</div>
+
+<script>
+const area = document.getElementById('area');
+const entrada = document.getElementById('arquivo');
+const saidas = document.getElementById('saidas');
+
+area.addEventListener('click', () => entrada.click());
+area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('ativa'); });
+area.addEventListener('dragleave', () => area.classList.remove('ativa'));
+area.addEventListener('drop', e => {
+  e.preventDefault(); area.classList.remove('ativa');
+  if (e.dataTransfer.files[0]) processar(e.dataTransfer.files[0]);
+});
+entrada.addEventListener('change', e => { if (e.target.files[0]) processar(e.target.files[0]); });
+
+function carregarImagem(arquivo) {
+  return new Promise((ok, erro) => {
+    const url = URL.createObjectURL(arquivo);
+    const img = new Image();
+    img.onload = () => ok(img);
+    img.onerror = () => erro(new Error('Não foi possível ler a imagem.'));
+    img.src = url;
+  });
+}
+
+/** Desenha a logo centralizada sobre o fundo escuro, respeitando a
+    área de proteção (margem equivalente à altura do símbolo). */
+function gerarIcone(img, tamanho, maskable) {
+  const c = document.createElement('canvas');
+  c.width = c.height = tamanho;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#1A1F2E';
+  ctx.fillRect(0, 0, tamanho, tamanho);
+
+  const respiro = maskable ? 0.30 : 0.18;      // maskable precisa de mais folga
+  const area = tamanho * (1 - respiro * 2);
+  const escala = Math.min(area / img.naturalWidth, area / img.naturalHeight);
+  const l = img.naturalWidth * escala, a = img.naturalHeight * escala;
+  ctx.drawImage(img, (tamanho - l) / 2, (tamanho - a) / 2, l, a);
+  return c;
+}
+
+function baixavel(nome, blob, previaUrl) {
+  const div = document.createElement('div');
+  div.className = 'arquivo';
+  const url = URL.createObjectURL(blob);
+  div.innerHTML = (previaUrl ? '<img src="' + previaUrl + '" alt="">' : '') +
+    '<small>' + nome + '</small>' +
+    '<a class="botao" download="' + nome + '" href="' + url + '">Baixar</a>';
+  saidas.appendChild(div);
+}
+
+async function processar(arquivo) {
+  saidas.innerHTML = '';
+  const img = await carregarImagem(arquivo);
+
+  // 1) A própria logo, normalizada em PNG
+  const cLogo = document.createElement('canvas');
+  cLogo.width = img.naturalWidth; cLogo.height = img.naturalHeight;
+  cLogo.getContext('2d').drawImage(img, 0, 0);
+  const dataLogo = cLogo.toDataURL('image/png');
+  document.getElementById('previa').src = dataLogo;
+  document.getElementById('resultado').hidden = false;
+
+  cLogo.toBlob(b => baixavel('edp-logo-neg.png', b, dataLogo), 'image/png');
+
+  // 2) Arquivo JS com a logo em Base64 (usado pelo PDF)
+  const js = '/* =====================================================================\n' +
+    ' * assets/logo-edp-base64.js — LOGO EMBUTIDA PARA O PDF\n' +
+    ' * Gerado por ferramentas/gerar-identidade.html em ' + new Date().toLocaleString('pt-BR') + '\n' +
+    ' * ===================================================================== */\n\n' +
+    'const LOGO_EDP_INFO = { largura: ' + img.naturalWidth + ', altura: ' + img.naturalHeight +
+    ', provisoria: false };\n\n' +
+    "const LOGO_EDP_BASE64 = '" + dataLogo + "';\n\n" +
+    'window.LOGO_EDP_BASE64 = LOGO_EDP_BASE64;\n' +
+    'window.LOGO_EDP_INFO = LOGO_EDP_INFO;\n';
+  baixavel('logo-edp-base64.js', new Blob([js], { type: 'text/javascript' }), null);
+
+  // 3) Ícones do PWA
+  const icones = [
+    ['icon-192.png', 192, false],
+    ['icon-512.png', 512, false],
+    ['icon-512-maskable.png', 512, true],
+    ['apple-touch-icon.png', 180, false]
+  ];
+  icones.forEach(([nome, tamanho, maskable]) => {
+    const c = gerarIcone(img, tamanho, maskable);
+    const prev = c.toDataURL('image/png');
+    c.toBlob(b => baixavel(nome, b, prev), 'image/png');
+  });
+}
+</script>
+</body>
+</html>
