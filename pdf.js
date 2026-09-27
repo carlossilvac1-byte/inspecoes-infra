@@ -368,14 +368,13 @@ const PDFGEN = (function () {
 
     y = blocoChecklist(doc, y, reg);
 
-    y = secao(doc, y + 2, 'Rastreabilidade');
+    y = secao(doc, y + 2, 'Registro');
     y = linha(doc, y, 'Coordenadas',
       (reg.latitude !== null && reg.longitude !== null)
         ? (reg.latitude + ', ' + reg.longitude + (reg.precisaoGps ? '  (±' + reg.precisaoGps + ' m)' : ''))
         : (reg.obsGeo || 'Não capturada'));
-    y = linha(doc, y, 'Criado em', dataBR(reg.criadoEm));
-    y = linha(doc, y, 'Última edição', dataBR(reg.atualizadoEm) + '  (versão ' + (reg.versao || 1) + ')');
-    y = linha(doc, y, 'Dispositivo', reg.dispositivo);
+    y = linha(doc, y, 'Registrado em', dataBR(reg.criadoEm));
+    if ((reg.versao || 1) > 1) y = linha(doc, y, 'Última edição', dataBR(reg.atualizadoEm));
     if (reg.excluido) y = linha(doc, y, 'Registro excluído em', dataBR(reg.excluidoEm), true);
 
     y = await galeria(doc, y + 2, fotos);
@@ -406,10 +405,11 @@ const PDFGEN = (function () {
     const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4', compress: true });
     await corpoInspecao(doc, TOPO_CONTEUDO, reg, fotos);
     await aplicarFaixas(doc, 'Relatório de Inspeção de Campo',
-      'Inspeção ' + reg.id + '  •  ' + reg.lote + ' / ' + DB.nomeCanteiro(reg));
+      'Inspeção de ' + dataBR(reg.dataInspecao) + '  •  ' + reg.lote + '  •  ' + DB.nomeCanteiro(reg));
 
-    const nome = 'Inspecao_' + limpar(reg.lote) + '_' + limpar(DB.nomeCanteiro(reg)) +
-                 '_' + reg.dataInspecao + '_' + reg.id.slice(0, 8) + '.pdf';
+    const nome = 'Inspecao_' + limpar(reg.lote) + '_' +
+                 limpar(String(DB.nomeCanteiro(reg)).replace(/^Canteiro\s+/i, '')) +
+                 '_' + reg.dataInspecao + '.pdf';
     return baixar(doc, nome);
   }
 
