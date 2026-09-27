@@ -629,6 +629,16 @@ main:has(> #tela-painel:not([hidden])) { max-width: 1760px; padding-left: 16px; 
   .dash-controles .btn { width: 100%; }
 }
 
+
+/* Janela "Arquivo pronto" (entrega de PDF/CSV/JSON no celular) */
+.caixa-arquivo { text-align: center; }
+.caixa-arquivo .arq-icone { font-size: 38px; line-height: 1; margin-bottom: 6px; }
+.caixa-arquivo h3 { margin: 0 0 6px; }
+.caixa-arquivo .arq-nome { font-weight: 600; word-break: break-all; margin: 0 0 4px; font-size: 14px; }
+.caixa-arquivo .arq-dica { margin: 0 0 14px; }
+.arq-botoes { display: grid; gap: 8px; }
+.arq-botoes .btn[hidden] { display: none; }
+
 @media print {
   .cabecalho, .navegacao, .barra-acoes, .avisos { display: none !important; }
   .cartao { box-shadow: none; border: 1px solid #999; }

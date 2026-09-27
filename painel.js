@@ -491,9 +491,7 @@ const PAINEL = (function () {
     try {
       const d = dadosAtuais || await calcular();
       const r = await PDFGEN.gerarPainel(d);
-      APP.aviso(r.modo === 'aba'
-        ? 'PDF aberto em nova aba. Use Compartilhar → Salvar em Arquivos.'
-        : 'PDF gerado: ' + r.nome, 'sucesso');
+      APP.avisoEntrega(r);
     } catch (e) {
       APP.aviso('Falha ao gerar o PDF: ' + (e.message || e), 'erro', 0);
     } finally {

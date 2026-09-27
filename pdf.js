@@ -385,25 +385,14 @@ const PDFGEN = (function () {
   /* ---------------------------------------------------------------
    * Saída do arquivo
    * ------------------------------------------------------------- */
+  /**
+   * Entrega o PDF pelo mecanismo único do app (APP.entregarArquivo), que
+   * funciona no navegador, no computador e no app instalado no celular
+   * (iPhone e Android): compartilhar / salvar / baixar a partir de um toque.
+   */
   function baixar(doc, nomeArquivo) {
     const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    const ehIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const standalone = window.navigator.standalone === true ||
-                       window.matchMedia('(display-mode: standalone)').matches;
-
-    if (ehIOS && standalone) {
-      const a = document.createElement('a');
-      a.href = url; a.target = '_blank'; a.rel = 'noopener';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-      return { modo: 'aba', nome: nomeArquivo };
-    }
-    const a = document.createElement('a');
-    a.href = url; a.download = nomeArquivo;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
-    return { modo: 'download', nome: nomeArquivo };
+    return window.APP.entregarArquivo(blob, nomeArquivo, 'application/pdf');
   }
 
   /* ---------------------------------------------------------------

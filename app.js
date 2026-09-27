@@ -83,13 +83,128 @@ const APP = (function () {
     return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   }
 
-  function baixarTexto(nomeArquivo, conteudo, mime) {
-    const blob = new Blob([conteudo], { type: mime + ';charset=utf-8' });
+  /* -----------------------------------------------------------------
+   * ENTREGA DE ARQUIVOS (PDF, planilha, backup)
+   * -----------------------------------------------------------------
+   * No celular — principalmente com o app instalado na tela de início —
+   * o sistema bloqueia download ou nova aba que não nasçam de um toque
+   * do usuário, e o PDF leva alguns segundos para ficar pronto. Por isso,
+   * no celular o arquivo é oferecido numa janela "Arquivo pronto": o
+   * toque no botão é que dispara o compartilhamento (folha nativa com
+   * Salvar em Arquivos, WhatsApp, e-mail, Drive…) ou o download.
+   * No computador o download continua direto.
+   * ----------------------------------------------------------------- */
+  const UA = navigator.userAgent || '';
+  const EH_IOS = /iPhone|iPad|iPod/i.test(UA) || (/Macintosh/i.test(UA) && navigator.maxTouchPoints > 1);
+  const EH_ANDROID = /Android/i.test(UA);
+  const EH_MOVEL = EH_IOS || EH_ANDROID;
+  const EH_INSTALADO = window.navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+
+  function downloadDireto(blob, nome) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = nomeArquivo;
+    a.href = url; a.download = nome; a.rel = 'noopener';
     document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 20000);
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
+  }
+
+  function podeCompartilhar(arquivo) {
+    try {
+      return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [arquivo] }));
+    } catch (e) { return false; }
+  }
+
+  function tamanhoLegivel(b) {
+    return b < 1024 * 1024 ? Math.max(1, Math.round(b / 1024)) + ' KB'
+                           : (b / 1024 / 1024).toFixed(1).replace('.', ',') + ' MB';
+  }
+
+  /**
+   * @returns Promise<{modo: 'download'|'compartilhado'|'baixado'|'aberto'|'fechado', nome}>
+   */
+  function entregarArquivo(blob, nome, tipo) {
+    tipo = tipo || blob.type || 'application/octet-stream';
+    if (!EH_MOVEL) {
+      downloadDireto(blob, nome);
+      return Promise.resolve({ modo: 'download', nome: nome });
+    }
+
+    carregando(false);   // tira o "Montando…" da frente da janela
+    const arquivo = new File([blob], nome, { type: tipo, lastModified: Date.now() });
+    const compartilha = podeCompartilhar(arquivo);
+    const ehPdf = /pdf/i.test(tipo);
+
+    const bt = {
+      comp: $('#arq-compartilhar'), baixar: $('#arq-baixar'),
+      abrir: $('#arq-abrir'), fechar: $('#arq-fechar')
+    };
+    $('#arq-titulo').textContent = ehPdf ? 'PDF pronto' : 'Arquivo pronto';
+    $('#arq-nome').textContent = nome + '  ·  ' + tamanhoLegivel(blob.size);
+
+    bt.comp.hidden = !compartilha;
+    // No iPhone com o app instalado, "baixar" e "abrir" não funcionam:
+    // o caminho é o compartilhamento (que tem "Salvar em Arquivos").
+    bt.baixar.hidden = EH_IOS && EH_INSTALADO && compartilha;
+    bt.abrir.hidden = !(ehPdf && !EH_IOS);          // Android: abre no leitor de PDF
+    bt.baixar.classList.toggle('btn-primario', bt.comp.hidden);
+    bt.baixar.classList.toggle('btn-secundario', !bt.comp.hidden);
+
+    $('#arq-dica').textContent = compartilha
+      ? (EH_IOS ? 'Toque em "Salvar / Compartilhar" e escolha "Salvar em Arquivos", WhatsApp ou e-mail.'
+                : 'Compartilhe (WhatsApp, e-mail, Drive) ou baixe para a pasta Downloads.')
+      : 'O arquivo vai para a pasta de downloads do aparelho.';
+
+    return new Promise((resolve) => {
+      const caixa = $('#modal-arquivo');
+      let url = null;
+      const fim = (modo) => {
+        caixa.hidden = true;
+        [bt.comp, bt.baixar, bt.abrir, bt.fechar].forEach(b => { b.onclick = null; });
+        if (url) setTimeout(() => URL.revokeObjectURL(url), 120000);
+        resolve({ modo: modo, nome: nome });
+      };
+
+      bt.comp.onclick = async () => {
+        try {
+          await navigator.share({ files: [arquivo], title: nome });
+          fim('compartilhado');
+        } catch (e) {
+          if (e && e.name === 'AbortError') return;          // usuário fechou a folha: janela continua
+          // Sem permissão para compartilhar: cai para o download
+          downloadDireto(blob, nome);
+          fim('baixado');
+        }
+      };
+      bt.baixar.onclick = () => { downloadDireto(blob, nome); fim('baixado'); };
+      bt.abrir.onclick = () => {
+        url = url || URL.createObjectURL(blob);
+        const w = window.open(url, '_blank');
+        if (!w) { downloadDireto(blob, nome); fim('baixado'); return; }
+        fim('aberto');
+      };
+      bt.fechar.onclick = () => fim('fechado');
+
+      caixa.hidden = false;
+      setTimeout(() => (bt.comp.hidden ? bt.baixar : bt.comp).focus(), 50);
+    });
+  }
+
+  /** Mensagem de retorno padrão depois da entrega. */
+  function avisoEntrega(r) {
+    if (!r) return;
+    const txt = {
+      download: 'Arquivo gerado: ' + r.nome,
+      compartilhado: 'Arquivo enviado/salvo: ' + r.nome,
+      baixado: 'Arquivo baixado: ' + r.nome + ' (pasta Downloads).',
+      aberto: 'PDF aberto: ' + r.nome
+    }[r.modo];
+    if (txt) aviso(txt, 'sucesso', 5);
+  }
+
+  function baixarTexto(nomeArquivo, conteudo, mime) {
+    const blob = new Blob([conteudo], { type: mime + ';charset=utf-8' });
+    return entregarArquivo(blob, nomeArquivo, mime);
   }
 
   function escapar(t) {
@@ -1062,9 +1177,7 @@ const APP = (function () {
     carregando(true, 'Montando o PDF…');
     try {
       const r = await PDFGEN.gerarIndividual(id);
-      aviso(r.modo === 'aba'
-        ? 'PDF aberto em nova aba. Use Compartilhar → Salvar em Arquivos.'
-        : 'PDF gerado: ' + r.nome, 'sucesso');
+      avisoEntrega(r);
     } catch (e) {
       aviso('Falha ao gerar o PDF: ' + (e.message || e), 'erro', 0);
     } finally {
@@ -1079,9 +1192,7 @@ const APP = (function () {
     carregando(true, 'Montando o consolidado (' + lista.length + ' inspeções)…');
     try {
       const r = await PDFGEN.gerarConsolidado(lista, descreverFiltros(f));
-      aviso(r.modo === 'aba'
-        ? 'PDF aberto em nova aba. Use Compartilhar → Salvar em Arquivos.'
-        : 'PDF gerado: ' + r.nome, 'sucesso');
+      avisoEntrega(r);
     } catch (e) {
       aviso('Falha ao gerar o PDF: ' + (e.message || e), 'erro', 0);
     } finally {
@@ -1142,8 +1253,8 @@ const APP = (function () {
     try {
       const csv = await DB.exportarCSV({ de: p.de, ate: p.ate });
       const carimbo = p.de ? p.de.slice(0, 7).replace('-', '') : 'completo';
-      baixarTexto('Inspecoes-Infra_' + carimbo + '.csv', csv, 'text/csv');
-      aviso(lista.length + ' inspeção(ões) exportada(s) para a planilha.', 'sucesso', 5);
+      const r = await baixarTexto('Inspecoes-Infra_' + carimbo + '.csv', csv, 'text/csv');
+      if (r.modo !== 'fechado') aviso(lista.length + ' inspeção(ões) exportada(s) para a planilha.', 'sucesso', 5);
     } catch (e) {
       aviso('Falha ao exportar: ' + (e.message || e), 'erro', 0);
     } finally {
@@ -1161,9 +1272,7 @@ const APP = (function () {
       const desc = p.de ? ('Período: ' + dataBR(p.de) + ' a ' + dataBR(p.ate))
                         : 'Histórico completo';
       const r = await PDFGEN.gerarConsolidado(lista, desc);
-      aviso(r.modo === 'aba'
-        ? 'PDF aberto em nova aba. Use Compartilhar → Salvar em Arquivos.'
-        : 'PDF gerado: ' + r.nome, 'sucesso');
+      avisoEntrega(r);
     } catch (e) {
       aviso('Falha ao gerar o PDF: ' + (e.message || e), 'erro', 0);
     } finally {
@@ -1175,9 +1284,9 @@ const APP = (function () {
     carregando(true, 'Gerando o backup…');
     try {
       const carimbo = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-      baixarTexto('Inspecoes-Infra_backup_' + carimbo + '.json',
+      const r = await baixarTexto('Inspecoes-Infra_backup_' + carimbo + '.json',
                   await DB.exportarJSON(true), 'application/json');
-      aviso('Backup completo gerado (inclui as fotos).', 'sucesso', 5);
+      if (r.modo !== 'fechado') aviso('Backup completo gerado (inclui as fotos).', 'sucesso', 5);
     } catch (e) {
       aviso('Falha ao exportar: ' + (e.message || e), 'erro', 0);
     } finally {
@@ -1736,7 +1845,9 @@ const APP = (function () {
     aviso: aviso,
     carregando: carregando,
     mostrarTela: mostrarTela,
-    escapar: escapar
+    escapar: escapar,
+    entregarArquivo: entregarArquivo,
+    avisoEntrega: avisoEntrega
   };
 })();
 

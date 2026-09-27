@@ -693,6 +693,21 @@
 </div>
 
 <!-- Caixa de confirmação própria (confirm() é bloqueado em PWA no iOS) -->
+<div class="modal" id="modal-arquivo" hidden role="dialog" aria-modal="true" aria-labelledby="arq-titulo">
+  <div class="modal-caixa caixa-arquivo">
+    <div class="arq-icone" aria-hidden="true">📄</div>
+    <h3 id="arq-titulo">Arquivo pronto</h3>
+    <p class="arq-nome" id="arq-nome"></p>
+    <p class="apoio pequena" id="arq-dica"></p>
+    <div class="arq-botoes">
+      <button type="button" class="btn btn-primario btn-bloco" id="arq-compartilhar">Salvar / Compartilhar</button>
+      <button type="button" class="btn btn-secundario btn-bloco" id="arq-baixar">Baixar no aparelho</button>
+      <button type="button" class="btn btn-secundario btn-bloco" id="arq-abrir">Abrir</button>
+      <button type="button" class="btn btn-neutro btn-bloco" id="arq-fechar">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="modal" hidden>
   <div class="modal-caixa">
     <h3 id="modal-titulo">Confirmar</h3>

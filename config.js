@@ -27,7 +27,7 @@ const CONFIG = {
     nomeCurto: 'Inspeções Infra',
     obra: 'EDP TRANSMISSÃO CONSTRUÇÃO',
     empresa: 'EDP TRANSMISSÃO CONSTRUÇÃO',
-    versao: '3.2.0'
+    versao: '3.2.1'
   },
 
   /* -------------------------------------------------------------------

@@ -4,7 +4,7 @@ Aplicativo web instalável (PWA) para registro de inspeções de canteiros,
 alojamentos, cozinhas/refeitórios e áreas de vivência — **EDP TRANSMISSÃO
 CONSTRUÇÃO** — com funcionamento integral **sem internet**.
 
-Versão 3.2.0 — sem servidor. Cada inspetor guarda as próprias inspeções no
+Versão 3.2.1 — sem servidor. Cada inspetor guarda as próprias inspeções no
 aparelho, emite os PDFs para o dossiê e envia a planilha mensal.
 
 ## Comece por aqui (2 minutos)
@@ -97,7 +97,7 @@ publish directory na raiz, preset **Other**.
 ### 2.4 Publicando uma nova versão
 Suba o número em **dois** lugares, senão os aparelhos continuam na versão antiga:
 
-- `service-worker.js` → `const VERSAO = 'v3.2.0';`
+- `service-worker.js` → `const VERSAO = 'v3.2.1';`
 - `config.js` → `CONFIG.app.versao`
 
 ---
