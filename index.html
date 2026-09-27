@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <!-- viewport-fit=cover + safe-area no CSS: a barra inferior do iPhone
+       não cobre a navegação quando instalado na tela de início -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1A1F2E">
+  <meta name="description" content="Registro de inspeções de campo — EDP TRANSMISSÃO CONSTRUÇÃO. Funciona sem internet.">
+
+  <title>Inspeções - Infra | EDP TRANSMISSÃO CONSTRUÇÃO</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- PWA no iOS (o Safari não lê tudo do manifest) -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Inspeções Infra">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon-192.png">
+</head>
+<body>
+
+<!-- =====================================================================
+     CABEÇALHO — logo EDP, nome do app e estado da conexão
+     ================================================================== -->
+<header class="cabecalho" id="cabecalho">
+  <div class="cab-linha">
+    <div class="cab-titulo">
+      <img src="assets/edp-logo-neg.png" alt="EDP" class="cab-logo">
+      <div class="cab-textos">
+        <strong id="cab-nome">Inspeções - Infra</strong>
+        <small id="cab-obra">EDP TRANSMISSÃO CONSTRUÇÃO</small>
+      </div>
+    </div>
+    <button type="button" class="badge-rede" id="badge-rede" title="Conexão e fila de envio">
+      <span class="ponto" id="ponto-rede"></span>
+      <span id="txt-rede">Verificando…</span>
+    </button>
+  </div>
+</header>
+
+<div id="avisos" class="avisos" aria-live="polite"></div>
+
+<main id="conteudo">
+
+  <!-- ===================================================================
+       TELA — LOGIN
+       ================================================================ -->
+  <section class="tela" id="tela-login">
+    <div class="bloco-marca">
+      <img src="assets/edp-logo-neg.png" alt="EDP" class="marca-login">
+      <p class="marca-sub">Inspeções - Infra | EDP TRANSMISSÃO CONSTRUÇÃO</p>
+    </div>
+
+    <div class="cartao">
+      <h1>Entrar</h1>
+      <div class="aviso-embutido" id="aviso-modo-local" hidden>
+        <b>Primeiro acesso?</b> Toque em <i>Criar cadastro</i>: a conta é criada neste
+        aparelho, sem precisar de internet, e os registros ficam guardados nele.
+      </div>
+      <div class="aviso-embutido" id="aviso-offline-login" hidden>
+        Sem conexão — você pode entrar com a última conta usada neste aparelho.
+      </div>
+
+      <label class="campo">
+        <span class="rotulo">E-mail corporativo <b class="obrig">*</b></span>
+        <input type="email" id="login-email" autocomplete="username"
+               inputmode="email" placeholder="nome.sobrenome@edp.com" enterkeyhint="next">
+        <span class="erro" id="e-login-email"></span>
+      </label>
+
+      <label class="campo">
+        <span class="rotulo">Senha <b class="obrig">*</b></span>
+        <span class="campo-senha">
+          <input type="password" id="login-senha" autocomplete="current-password" enterkeyhint="go">
+          <button type="button" class="btn-olho" data-alvo="login-senha" aria-label="Mostrar senha">Mostrar</button>
+        </span>
+        <span class="erro" id="e-login-senha"></span>
+      </label>
+
+      <label class="campo campo-inline">
+        <input type="checkbox" id="login-manter" checked>
+        <span>Manter conectado neste aparelho</span>
+      </label>
+
+      <button class="btn btn-primario btn-bloco" id="btn-login">Entrar</button>
+
+      <div class="links-login">
+        <button type="button" class="btn btn-texto" id="link-cadastro">Criar cadastro</button>
+        <button type="button" class="btn btn-texto" id="link-esqueci">Esqueci minha senha</button>
+      </div>
+    </div>
+
+    <div class="cartao" id="cartao-instalacao">
+      <h2>Instalar na tela de início</h2>
+      <div class="abas" role="tablist">
+        <button class="aba ativa" data-so="android" role="tab">Android</button>
+        <button class="aba" data-so="ios" role="tab">iPhone / iPad</button>
+        <button class="aba" data-so="desktop" role="tab">Computador</button>
+      </div>
+      <div class="aba-conteudo" data-so="android">
+        <ol>
+          <li>Abra o endereço do aplicativo no <b>Chrome</b>.</li>
+          <li>Toque no menu <b>⋮</b> (canto superior direito).</li>
+          <li>Escolha <b>Instalar aplicativo</b>.</li>
+        </ol>
+        <button class="btn btn-secundario" id="btn-instalar" hidden>Instalar agora</button>
+      </div>
+      <div class="aba-conteudo" data-so="ios" hidden>
+        <ol>
+          <li>Abra o endereço no <b>Safari</b> (pelo Chrome não funciona no iPhone).</li>
+          <li>Toque em <b>Compartilhar</b> <span class="ios-share">⬆︎</span>.</li>
+          <li>Escolha <b>Adicionar à Tela de Início</b>.</li>
+          <li>Abra sempre pelo ícone criado — só assim funciona sem internet.</li>
+        </ol>
+      </div>
+      <div class="aba-conteudo" data-so="desktop" hidden>
+        <ol>
+          <li>Abra no <b>Chrome</b> ou <b>Edge</b>.</li>
+          <li>Clique no ícone ⊕ na barra de endereço e confirme <b>Instalar</b>.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================
+       TELA — CADASTRO
+       ================================================================ -->
+  <section class="tela" id="tela-cadastro" hidden>
+    <div class="cartao">
+      <button type="button" class="btn btn-texto" id="voltar-login-1">‹ Voltar para o login</button>
+      <h1>Criar cadastro</h1>
+      <div class="aviso-embutido" id="aviso-cadastro-local" hidden>
+        <b>Modo local.</b> A conta é criada neste aparelho e liberada na hora — sem
+        internet e sem aprovação. A primeira conta do aparelho vira administradora.
+      </div>
+      <p class="apoio" id="apoio-cadastro-aprovacao">O acesso é liberado pelo administrador.
+         Você recebe a confirmação assim que o cadastro for aprovado.</p>
+
+      <label class="campo">
+        <span class="rotulo">Nome completo <b class="obrig">*</b></span>
+        <input type="text" id="cad-nome" autocomplete="name" placeholder="Nome e sobrenome">
+        <span class="erro" id="e-cad-nome"></span>
+      </label>
+
+      <label class="campo">
+        <span class="rotulo">E-mail corporativo <b class="obrig">*</b></span>
+        <input type="email" id="cad-email" autocomplete="email" inputmode="email"
+               placeholder="nome.sobrenome@edp.com">
+        <span class="apoio pequena">É o seu identificador de acesso. Não pode se repetir.</span>
+        <span class="erro" id="e-cad-email"></span>
+      </label>
+
+      <label class="campo">
+        <span class="rotulo">Função / cargo <b class="obrig">*</b></span>
+        <select id="cad-funcao"><option value="">Selecione…</option></select>
+        <span class="erro" id="e-cad-funcao"></span>
+      </label>
+      <label class="campo" id="campo-cad-funcao-outro" hidden>
+        <span class="rotulo">Informe a função <b class="obrig">*</b></span>
+        <input type="text" id="cad-funcao-outro" placeholder="Descreva o cargo">
+        <span class="erro" id="e-cad-funcao-outro"></span>
+      </label>
+
+      <fieldset class="campo">
+        <legend class="rotulo">Lote(s) de atuação <b class="obrig">*</b></legend>
+        <div id="cad-lotes" class="lista-check"></div>
+        <span class="erro" id="e-cad-lotes"></span>
+      </fieldset>
+
+      <label class="campo">
+        <span class="rotulo">Senha <b class="obrig">*</b></span>
+        <span class="campo-senha">
+          <input type="password" id="cad-senha" autocomplete="new-password">
+          <button type="button" class="btn-olho" data-alvo="cad-senha" aria-label="Mostrar senha">Mostrar</button>
+        </span>
+        <span class="apoio pequena">Mínimo de 8 caracteres, com pelo menos uma letra e um número.</span>
+        <span class="erro" id="e-cad-senha"></span>
+      </label>
+
+      <label class="campo">
+        <span class="rotulo">Confirmação da senha <b class="obrig">*</b></span>
+        <span class="campo-senha">
+          <input type="password" id="cad-senha2" autocomplete="new-password">
+          <button type="button" class="btn-olho" data-alvo="cad-senha2" aria-label="Mostrar senha">Mostrar</button>
+        </span>
+        <span class="erro" id="e-cad-senha2"></span>
+      </label>
+
+      <button class="btn btn-primario btn-bloco" id="btn-cadastrar">Enviar cadastro</button>
+      <p class="apoio pequena" id="apoio-cadastro-rede">O cadastro exige internet. Em campo,
+         sem sinal, use uma conta já liberada.</p>
+    </div>
+  </section>
+
+  <!-- ===================================================================
+       TELA — RECUPERAÇÃO DE SENHA
+       ================================================================ -->
+  <section class="tela" id="tela-recuperar" hidden>
+    <div class="cartao">
+      <button type="button" class="btn btn-texto" id="voltar-login-2">‹ Voltar para o login</button>
+      <h1>Esqueci minha senha</h1>
+      <div class="aviso-embutido alerta" id="aviso-recuperar-local" hidden>
+        <b>Modo local.</b> Sem servidor configurado não há envio de e-mail. A conta existe
+        apenas neste aparelho — se perdeu a senha, crie outra conta ou peça ao
+        administrador do aparelho.
+      </div>
+      <div class="aviso-embutido alerta" id="aviso-offline-recuperar" hidden>
+        Recuperação de senha exige internet. Conecte-se à rede e tente de novo.
+      </div>
+      <p class="apoio">Enviaremos um link de redefinição para o seu e-mail corporativo.</p>
+      <label class="campo">
+        <span class="rotulo">E-mail cadastrado <b class="obrig">*</b></span>
+        <input type="email" id="rec-email" inputmode="email" placeholder="nome.sobrenome@edp.com">
+        <span class="erro" id="e-rec-email"></span>
+      </label>
+      <button class="btn btn-primario btn-bloco" id="btn-recuperar">Enviar link de redefinição</button>
+    </div>
+  </section>
+
+  <!-- ===================================================================
+       TELA — NOVA INSPEÇÃO (também usada na edição)
+       ================================================================ -->
+  <section class="tela" id="tela-nova" hidden>
+    <form id="form-inspecao" novalidate>
+      <div class="cartao">
+        <h1 id="titulo-form">Nova inspeção</h1>
+
+        <div class="campo">
+          <span class="rotulo">Responsável</span>
+          <div class="campo-fixo" id="f-responsavel-exibicao">
+            <b id="txt-responsavel">—</b>
+            <small id="txt-funcao"></small>
+          </div>
+          <span class="apoio pequena">Vem do seu cadastro e não é editável.</span>
+        </div>
+
+        <label class="campo">
+          <span class="rotulo">Data da inspeção <b class="obrig">*</b></span>
+          <input type="date" id="f-data" required>
+          <span class="erro" id="e-data"></span>
+        </label>
+
+        <label class="campo">
+          <span class="rotulo">Lote <b class="obrig">*</b></span>
+          <select id="f-lote" required><option value="">Selecione…</option></select>
+          <span class="apoio pequena" id="apoio-lote" hidden></span>
+          <span class="erro" id="e-lote"></span>
+        </label>
+
+        <label class="campo">
+          <span class="rotulo">Canteiro <b class="obrig">*</b></span>
+          <select id="f-canteiro" required disabled>
+            <option value="">Selecione o lote primeiro</option>
+          </select>
+          <span class="erro" id="e-canteiro"></span>
+        </label>
+        <label class="campo" id="campo-canteiro-outro" hidden>
+          <span class="rotulo">Informe o canteiro <b class="obrig">*</b></span>
+          <input type="text" id="f-canteiro-outro" placeholder="Nome do canteiro">
+          <span class="erro" id="e-canteiro-outro"></span>
+        </label>
+
+        <label class="campo">
+          <span class="rotulo">Empresa (construtora) <b class="obrig">*</b></span>
+          <select id="f-empresa" required disabled>
+            <option value="">Selecione o canteiro primeiro</option>
+          </select>
+          <span class="erro" id="e-empresa"></span>
+        </label>
+        <label class="campo" id="campo-empresa-outro" hidden>
+          <span class="rotulo">Informe a empresa <b class="obrig">*</b></span>
+          <input type="text" id="f-empresa-outro" placeholder="Razão social / nome">
+          <span class="erro" id="e-empresa-outro"></span>
+        </label>
+      </div>
+
+      <div class="cartao">
+        <fieldset class="campo">
+          <legend class="rotulo">O que foi inspecionado? <b class="obrig">*</b></legend>
+          <div id="f-inspecionado" class="lista-check"></div>
+          <span class="erro" id="e-inspecionado"></span>
+        </fieldset>
+        <label class="campo" id="campo-inspecionado-outro" hidden>
+          <span class="rotulo">Descreva o "Outro" <b class="obrig">*</b></span>
+          <input type="text" id="f-inspecionado-outro" placeholder="O que mais foi inspecionado">
+          <span class="erro" id="e-inspecionado-outro"></span>
+        </label>
+      </div>
+
+      <div class="cartao">
+        <div class="campo">
+          <span class="rotulo">Não conformidade? <b class="obrig">*</b></span>
+          <div class="radio-grande">
+            <label class="opcao opcao-nao">
+              <input type="radio" name="nc" value="Não" checked><span>Não</span>
+            </label>
+            <label class="opcao opcao-sim">
+              <input type="radio" name="nc" value="Sim"><span>Sim</span>
+            </label>
+          </div>
+        </div>
+        <label class="campo" id="campo-quais" hidden>
+          <span class="rotulo">Quais? <b class="obrig">*</b></span>
+          <textarea id="f-quais" rows="5"
+            placeholder="Descreva as não conformidades encontradas, local e gravidade."></textarea>
+          <span class="erro" id="e-quais"></span>
+        </label>
+      </div>
+
+      <div class="cartao">
+        <span class="rotulo">Fotos <small id="contador-fotos">(0/20)</small></span>
+        <div class="botoes-foto">
+          <label class="btn btn-secundario btn-arquivo">
+            Tirar foto
+            <input type="file" id="f-camera" accept="image/*" capture="environment" multiple hidden>
+          </label>
+          <label class="btn btn-secundario btn-arquivo">
+            Escolher da galeria
+            <input type="file" id="f-galeria" accept="image/*" multiple hidden>
+          </label>
+        </div>
+        <p class="apoio pequena">As fotos são reduzidas para 1600 px e ~300 KB antes de
+           serem gravadas no aparelho.</p>
+        <div id="grade-fotos" class="grade-fotos"></div>
+      </div>
+
+      <div class="cartao">
+        <label class="campo">
+          <span class="rotulo">Observações</span>
+          <textarea id="f-observacoes" rows="4" placeholder="Informações complementares (opcional)."></textarea>
+        </label>
+        <div class="campo">
+          <span class="rotulo">Localização</span>
+          <div class="linha-geo">
+            <span id="txt-geo" class="apoio pequena">Não capturada.</span>
+            <button type="button" class="btn btn-texto" id="btn-geo">Capturar GPS</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="barra-acoes">
+        <button type="button" class="btn btn-neutro" id="btn-cancelar">Cancelar</button>
+        <button type="submit" class="btn btn-primario" id="btn-salvar">Salvar inspeção</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ===================================================================
+       TELA — HISTÓRICO
+       ================================================================ -->
+  <section class="tela" id="tela-historico" hidden>
+    <div class="cartao">
+      <h1>Histórico de inspeções</h1>
+      <label class="campo">
+        <span class="rotulo">Busca livre</span>
+        <input type="search" id="h-texto" placeholder="Canteiro, empresa, texto da NC…">
+      </label>
+      <details id="det-filtros">
+        <summary>Filtros</summary>
+        <div class="grade-filtros">
+          <label class="campo"><span class="rotulo">De</span><input type="date" id="h-de"></label>
+          <label class="campo"><span class="rotulo">Até</span><input type="date" id="h-ate"></label>
+          <label class="campo"><span class="rotulo">Lote</span>
+            <select id="h-lote"><option value="">Todos</option></select></label>
+          <label class="campo"><span class="rotulo">Canteiro</span>
+            <select id="h-canteiro"><option value="">Todos</option></select></label>
+          <label class="campo"><span class="rotulo">Empresa</span>
+            <select id="h-empresa"><option value="">Todas</option></select></label>
+          <label class="campo"><span class="rotulo">Não conformidade</span>
+            <select id="h-nc">
+              <option value="">Todas</option>
+              <option value="Sim">Somente com NC</option>
+              <option value="Não">Somente sem NC</option>
+            </select></label>
+          <label class="campo campo-inline">
+            <input type="checkbox" id="h-excluidos"><span>Mostrar excluídos</span>
+          </label>
+        </div>
+        <button type="button" class="btn btn-texto" id="btn-limpar-filtros">Limpar filtros</button>
+      </details>
+    </div>
+
+    <div class="barra-acoes barra-historico">
+      <span id="h-resumo" class="apoio pequena"></span>
+      <button type="button" class="btn btn-secundario" id="btn-pdf-consolidado">PDF do período</button>
+    </div>
+
+    <div id="lista-historico" class="lista"></div>
+  </section>
+
+  <!-- ===================================================================
+       TELA — DETALHE
+       ================================================================ -->
+  <section class="tela" id="tela-detalhe" hidden>
+    <div class="cartao">
+      <button type="button" class="btn btn-texto" id="btn-voltar-detalhe">‹ Voltar ao histórico</button>
+      <div id="detalhe-conteudo"></div>
+    </div>
+    <div class="barra-acoes">
+      <button type="button" class="btn btn-neutro" id="btn-excluir-detalhe">Excluir</button>
+      <button type="button" class="btn btn-secundario" id="btn-editar-detalhe">Editar</button>
+      <button type="button" class="btn btn-primario" id="btn-pdf-detalhe">Gerar PDF</button>
+    </div>
+  </section>
+
+  <!-- ===================================================================
+       TELA — PAINEL DE INDICADORES
+       ================================================================ -->
+  <section class="tela tela-dash" id="tela-painel" hidden>
+    <div class="cartao dash-topo">
+      <div class="dash-titulo">
+        <h1>Painel de indicadores</h1>
+        <p class="apoio pequena" id="pa-descricao"></p>
+      </div>
+      <div class="dash-controles">
+        <div class="periodo" id="periodo-botoes">
+          <button type="button" class="chip ativo" data-periodo="mes">Mês atual</button>
+          <button type="button" class="chip" data-periodo="3meses">Últimos 3 meses</button>
+          <button type="button" class="chip" data-periodo="ano">Ano</button>
+          <button type="button" class="chip" data-periodo="custom">Personalizado</button>
+        </div>
+        <div class="dash-datas" id="periodo-custom" hidden>
+          <label class="campo"><span class="rotulo">De</span><input type="date" id="pa-de"></label>
+          <label class="campo"><span class="rotulo">Até</span><input type="date" id="pa-ate"></label>
+        </div>
+        <button type="button" class="btn btn-secundario" id="btn-pdf-painel">Exportar painel</button>
+      </div>
+    </div>
+
+    <div class="cartoes-indicador" id="pa-cartoes"></div>
+
+    <div class="dash-grade">
+      <div class="cartao dash-bloco">
+        <h2>Inspeções por lote</h2>
+        <div id="pa-graf-lote" class="area-grafico"></div>
+      </div>
+      <div class="cartao dash-bloco">
+        <h2>Inspeções por empresa</h2>
+        <div id="pa-graf-empresa" class="area-grafico"></div>
+      </div>
+      <div class="cartao dash-bloco">
+        <h2>O que foi inspecionado</h2>
+        <div id="pa-graf-itens" class="area-grafico"></div>
+      </div>
+
+      <div class="cartao dash-bloco dash-largo">
+        <h2>Evolução mensal <small class="apoio">— últimos 12 meses</small></h2>
+        <div id="pa-graf-evolucao" class="area-grafico"></div>
+      </div>
+      <div class="cartao dash-bloco">
+        <h2>Canteiros com mais não conformidades</h2>
+        <div id="pa-graf-canteiros" class="area-grafico"></div>
+      </div>
+
+      <div class="cartao dash-bloco dash-largo">
+        <h2>Cobertura de canteiros</h2>
+        <div class="rolagem-horizontal dash-tabela">
+          <table class="tabela" id="pa-cobertura">
+            <thead>
+              <tr>
+                <th>Canteiro</th><th>Lote</th><th>Última inspeção</th>
+                <th>No período</th><th>NCs</th><th>Situação</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="apoio pequena dash-legenda">
+          <span class="ponto-legenda verde"></span> até 30 dias &nbsp;
+          <span class="ponto-legenda amarelo"></span> 31 a 60 dias &nbsp;
+          <span class="ponto-legenda vermelho"></span> mais de 60 dias ou nunca inspecionado
+        </p>
+      </div>
+      <div class="cartao dash-bloco">
+        <h2>Checklist — perguntas com NÃO</h2>
+        <div id="pa-graf-checklist" class="area-grafico"></div>
+      </div>
+
+      <div class="cartao dash-bloco" id="cartao-graf-responsavel" hidden>
+        <h2>Inspeções por responsável</h2>
+        <div id="pa-graf-responsavel" class="area-grafico"></div>
+        <p class="apoio pequena">Visível apenas para o perfil administrador.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================
+       TELA — EXPORTAÇÃO E BACKUP
+       ================================================================ -->
+  <section class="tela" id="tela-sync" hidden>
+    <div class="cartao">
+      <h1>Exportar</h1>
+      <p class="apoio">As inspeções ficam guardadas neste aparelho. Use a planilha
+         mensal para enviar o consolidado e os PDFs para montar o dossiê.</p>
+
+      <div class="painel-numeros">
+        <div class="num"><b id="n-total">0</b><span>Inspeções gravadas</span></div>
+        <div class="num num-erro"><b id="n-nc">0</b><span>Com não conformidade</span></div>
+        <div class="num"><b id="n-fotos">0</b><span>Fotos</span></div>
+      </div>
+    </div>
+
+    <div class="cartao">
+      <h2>Planilha mensal</h2>
+      <p class="apoio pequena">Gera um arquivo CSV com todas as inspeções do período,
+         pronto para abrir no Excel e enviar.</p>
+
+      <label class="campo">
+        <span class="rotulo">Período</span>
+        <select id="exp-periodo">
+          <option value="mes">Mês atual</option>
+          <option value="anterior">Mês anterior</option>
+          <option value="ano">Ano corrente</option>
+          <option value="tudo">Todas as inspeções</option>
+          <option value="custom">Personalizado</option>
+        </select>
+      </label>
+      <div class="grade-filtros" id="exp-custom" hidden>
+        <label class="campo"><span class="rotulo">De</span><input type="date" id="exp-de"></label>
+        <label class="campo"><span class="rotulo">Até</span><input type="date" id="exp-ate"></label>
+      </div>
+      <p class="apoio pequena" id="exp-resumo"></p>
+
+      <button type="button" class="btn btn-primario btn-bloco" id="btn-exp-planilha">
+        Baixar planilha do período
+      </button>
+      <div class="botoes-foto" style="margin-top:10px">
+        <button type="button" class="btn btn-secundario" id="btn-exp-pdf">PDF consolidado</button>
+        <button type="button" class="btn btn-secundario" id="btn-exp-json">Backup JSON</button>
+      </div>
+      <p class="apoio pequena">O <b>backup JSON</b> guarda tudo, inclusive as fotos —
+         é o que permite recuperar os registros se o aparelho for trocado.</p>
+    </div>
+
+    <div class="cartao">
+      <h2>Armazenamento do aparelho</h2>
+      <div class="barra-armazenamento"><i id="barra-uso"></i></div>
+      <p class="apoio pequena" id="txt-armazenamento">Calculando…</p>
+      <button type="button" class="btn btn-texto perigo" id="btn-limpar-base">Apagar toda a base local</button>
+    </div>
+  </section>
+
+  <!-- ===================================================================
+       TELA — ADMINISTRAÇÃO
+       ================================================================ -->
+  <section class="tela" id="tela-admin" hidden>
+    <div class="cartao">
+      <div class="linha-titulo">
+        <h1>Administração</h1>
+        <button type="button" class="btn btn-secundario" id="btn-recarregar-usuarios">Atualizar</button>
+      </div>
+      <p class="apoio" id="apoio-admin">Aprovação de cadastros, lotes de atuação e
+         situação dos aparelhos.</p>
+      <div class="painel-numeros">
+        <div class="num num-pendente"><b id="ad-pendentes">0</b><span>Pendentes</span></div>
+        <div class="num num-ok"><b id="ad-ativos">0</b><span>Ativos</span></div>
+        <div class="num"><b id="ad-aparelhos">0</b><span>Aparelhos ativos (7 dias)</span></div>
+      </div>
+    </div>
+    <div id="lista-usuarios" class="lista"></div>
+  </section>
+
+  <!-- ===================================================================
+       TELA — MAIS (conta, ajuda, administração)
+       ================================================================ -->
+  <section class="tela" id="tela-mais" hidden>
+    <div class="cartao">
+      <h1>Minha conta</h1>
+      <table class="tabela-detalhe">
+        <tbody>
+          <tr><th>Nome</th><td id="conta-nome">—</td></tr>
+          <tr><th>E-mail</th><td id="conta-email">—</td></tr>
+          <tr><th>Função</th><td id="conta-funcao">—</td></tr>
+          <tr><th>Lotes de atuação</th><td id="conta-lotes">—</td></tr>
+          <tr><th>Perfil</th><td id="conta-perfil">—</td></tr>
+          <tr><th>Sessão offline</th><td id="conta-sessao">—</td></tr>
+        </tbody>
+      </table>
+      <div class="barra-acoes">
+        <button type="button" class="btn btn-neutro btn-bloco" id="btn-sair">Sair da conta</button>
+      </div>
+    </div>
+
+    <div class="cartao" id="cartao-logo">
+      <h2>Logotipo da empresa</h2>
+      <p class="apoio pequena">Use a versão <b>negativa</b> da marca (para fundo escuro),
+         em PNG com fundo transparente. Ela passa a aparecer no cabeçalho, na tela de
+         login e na faixa dos relatórios em PDF.</p>
+
+      <div class="previa-logo">
+        <img id="previa-logo" src="assets/edp-logo-neg.png" alt="Prévia do logotipo">
+      </div>
+      <p class="apoio pequena" id="txt-logo-atual">Logotipo padrão do pacote.</p>
+
+      <div class="botoes-foto">
+        <label class="btn btn-primario btn-arquivo">
+          Escolher arquivo
+          <input type="file" id="f-logo" accept="image/png,image/jpeg,image/webp" hidden>
+        </label>
+        <button type="button" class="btn btn-neutro" id="btn-logo-padrao">Voltar ao padrão</button>
+      </div>
+
+      <details style="margin-top:12px">
+        <summary>Aplicar em todos os aparelhos</summary>
+        <p class="apoio pequena">A logo escolhida aqui vale <b>neste aparelho</b>. Para que
+           ela apareça para toda a equipe — inclusive no ícone do aplicativo instalado —
+           baixe os arquivos abaixo e substitua-os na pasta publicada, subindo a versão
+           conforme o README.</p>
+        <button type="button" class="btn btn-secundario btn-bloco" id="btn-baixar-identidade">
+          Baixar arquivos para publicar
+        </button>
+        <div id="saida-identidade" class="lista-arquivos"></div>
+      </details>
+    </div>
+
+    <div class="cartao" id="cartao-admin-atalho" hidden>
+      <h2>Administração</h2>
+      <p class="apoio pequena">Aprovar cadastros, editar lotes e acompanhar os aparelhos.</p>
+      <button type="button" class="btn btn-primario btn-bloco" id="btn-abrir-admin">Abrir administração</button>
+    </div>
+
+    <div class="cartao">
+      <h2>Como usar</h2>
+      <ol class="ajuda">
+        <li><b>Sem sinal é normal.</b> Preencha e salve à vontade: tudo fica guardado
+            neste aparelho, inclusive as fotos.</li>
+        <li><b>PDF sem internet.</b> O relatório de cada inspeção é gerado no próprio
+            aparelho, em <i>Histórico → PDF</i>.</li>
+        <li><b>No fechamento do mês</b>, em <i>Exportar</i>, baixe a planilha do período
+            e o backup JSON e envie para o responsável.</li>
+        <li><b>Os dados ficam só neste aparelho.</b> Antes de trocar ou formatar o
+            celular, baixe o backup JSON.</li>
+        <li><b>Excluir</b> não apaga: marca como excluído e guarda a auditoria.</li>
+      </ol>
+    </div>
+
+    <div class="cartao">
+      <h2>Instalação na tela de início</h2>
+      <div class="abas" role="tablist">
+        <button class="aba ativa" data-so2="android">Android</button>
+        <button class="aba" data-so2="ios">iPhone / iPad</button>
+        <button class="aba" data-so2="desktop">Computador</button>
+      </div>
+      <div class="aba-conteudo2" data-so2="android">
+        <ol><li>Chrome → menu <b>⋮</b> → <b>Instalar aplicativo</b>.</li></ol>
+      </div>
+      <div class="aba-conteudo2" data-so2="ios" hidden>
+        <ol><li><b>Safari</b> → <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b>.</li>
+            <li>Abra sempre pelo ícone criado.</li></ol>
+      </div>
+      <div class="aba-conteudo2" data-so2="desktop" hidden>
+        <ol><li>Chrome/Edge → ícone ⊕ na barra de endereço → <b>Instalar</b>.</li></ol>
+      </div>
+    </div>
+
+    <div class="cartao">
+      <h2>Sobre</h2>
+      <p class="apoio pequena" id="txt-sobre"></p>
+    </div>
+  </section>
+
+</main>
+
+<!-- =====================================================================
+     NAVEGAÇÃO INFERIOR
+     ================================================================== -->
+<nav class="navegacao" id="navegacao" hidden>
+  <button type="button" data-ir="tela-nova" class="nav-item ativa">
+    <span class="icone">+</span><span>Nova</span>
+  </button>
+  <button type="button" data-ir="tela-historico" class="nav-item">
+    <span class="icone">☰</span><span>Histórico</span>
+  </button>
+  <button type="button" data-ir="tela-painel" class="nav-item">
+    <span class="icone">▦</span><span>Painel</span>
+  </button>
+  <button type="button" data-ir="tela-sync" class="nav-item">
+    <span class="icone">⬇</span><span>Exportar</span>
+  </button>
+  <button type="button" data-ir="tela-mais" class="nav-item">
+    <span class="icone">⋯</span><span>Mais</span>
+  </button>
+</nav>
+
+<div class="carregando" id="carregando" hidden>
+  <div class="caixa-carregando">
+    <div class="giro"></div>
+    <span id="txt-carregando">Processando…</span>
+  </div>
+</div>
+
+<!-- Caixa de confirmação própria (confirm() é bloqueado em PWA no iOS) -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-caixa">
+    <h3 id="modal-titulo">Confirmar</h3>
+    <p id="modal-texto"></p>
+    <div class="campo" id="modal-campo" hidden>
+      <input type="text" id="modal-input" placeholder="Motivo (opcional)">
+    </div>
+    <div class="barra-acoes">
+      <button type="button" class="btn btn-neutro" id="modal-nao">Cancelar</button>
+      <button type="button" class="btn btn-primario" id="modal-sim">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bibliotecas locais (sem CDN: precisam funcionar offline) -->
+<script src="vendor/dexie.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/html2canvas.min.js"></script>
+
+<!-- Camadas da aplicação -->
+<script src="config.js"></script>
+<script src="assets/logo-edp-base64.js"></script>
+<script src="db.js"></script>
+<script src="auth.js"></script>
+<script src="pdf.js"></script>
+<script src="painel.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
