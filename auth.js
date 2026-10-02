@@ -304,7 +304,9 @@ const AUTH = (function () {
     if (!navigator.onLine) throw new Error('SEM_REDE');
 
     // 1) Auth
-    const r = await fetchTimeout(base() + '/auth/v1/signup', {
+    // O link de confirmação do e-mail volta para o próprio app (e não para a raiz do site).
+    const voltar = window.location.origin + window.location.pathname;
+    const r = await fetchTimeout(base() + '/auth/v1/signup?redirect_to=' + encodeURIComponent(voltar), {
       method: 'POST',
       headers: cabecalhosAnon(),
       body: JSON.stringify({

@@ -2022,6 +2022,10 @@ const APP = (function () {
             '. Em janelas anônimas o armazenamento é bloqueado.', 'erro', 0);
     }
 
+    // Volta do link de confirmação de e-mail: o cadastro já foi confirmado.
+    const veioDaConfirmacao = /type=signup|access_token=/.test(window.location.hash);
+    if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+
     await aplicarLogo();     // antes de qualquer tela aparecer
     await AUTH.iniciar();
     SYNC.aoMudar(aoMudarSync);
@@ -2038,6 +2042,7 @@ const APP = (function () {
       const aba = $$('.aba[data-so]').filter(b => b.dataset.so === so)[0];
       if (aba) aba.click();
       mostrarTela('tela-login');
+      if (veioDaConfirmacao) aviso('E-mail confirmado. Entre com seu e-mail e senha.', 'sucesso', 10);
     }
 
     setInterval(atualizarBadges, 15000);
