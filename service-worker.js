@@ -9,7 +9,7 @@
  * altere VERSAO abaixo — é o que dispara a limpeza dos caches antigos.
  * ===================================================================== */
 
-const VERSAO = 'v3.2.2';
+const VERSAO = 'v3.5.0';
 const CACHE = 'inspecao-infra-' + VERSAO;
 
 /* Todos os arquivos necessários para o app funcionar 100% offline —
@@ -27,6 +27,9 @@ const ARQUIVOS = [
   './app.js',
   './manifest.json',
   './assets/edp-logo-neg.png',
+  './assets/logo-edp50.png',
+  './assets/login-fundo.jpg',
+  './assets/login-fundo-largo.jpg',
   './assets/logo-edp-base64.js',
   './vendor/dexie.min.js',
   './vendor/jspdf.umd.min.js',

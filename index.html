@@ -20,7 +20,25 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="icon" href="icons/icon-192.png">
 </head>
-<body>
+<body class="modo-publico" data-logo="oficial">
+
+<!-- Fundo das telas de acesso: torres de transmissão ao pôr do sol, véu
+     escuro para leitura e linhas de energia animadas. Decorativo. -->
+<div class="fundo-animado" aria-hidden="true">
+  <div class="fl-foto"></div>
+  <div class="fl-veu"></div>
+  <svg class="fl-energia" viewBox="0 0 1000 600" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="fl-g1" x1="0" x2="1"><stop offset="0" stop-color="#2BF08A"/><stop offset=".55" stop-color="#22D3EE"/><stop offset="1" stop-color="#2B6CFF"/></linearGradient>
+      <linearGradient id="fl-g2" x1="0" x2="1"><stop offset="0" stop-color="#1FE37B"/><stop offset="1" stop-color="#3B82F6"/></linearGradient>
+    </defs>
+    <path class="fl-linha l1" d="M-20 250 C 180 420, 420 540, 1020 470"/>
+    <path class="fl-linha l2" d="M-20 300 C 200 470, 460 575, 1020 520"/>
+    <path class="fl-pulso p1" d="M-20 250 C 180 420, 420 540, 1020 470"/>
+    <path class="fl-pulso p2" d="M-20 300 C 200 470, 460 575, 1020 520"/>
+  </svg>
+</div>
+
 
 <!-- =====================================================================
      CABEÇALHO — logo EDP, nome do app e estado da conexão
@@ -50,12 +68,12 @@
        ================================================================ -->
   <section class="tela" id="tela-login">
     <div class="bloco-marca">
-      <img src="assets/edp-logo-neg.png" alt="EDP" class="marca-login">
-      <p class="marca-sub">Inspeções - Infra | EDP TRANSMISSÃO CONSTRUÇÃO</p>
+      <img src="assets/logo-edp50.png" alt="EDP 50 anos — Há 30 anos no Brasil" class="logo-50">
     </div>
 
-    <div class="cartao">
-      <h1>Entrar</h1>
+    <div class="cartao cartao-vidro cartao-login">
+      <h1>Bem-vindo!</h1>
+      <p class="sub-vidro">Faça seu login para acessar o sistema.</p>
       <div class="aviso-embutido" id="aviso-modo-local" hidden>
         <b>Primeiro acesso?</b> Toque em <i>Criar cadastro</i>: a conta é criada neste
         aparelho, sem precisar de internet, e os registros ficam guardados nele.
@@ -65,36 +83,42 @@
       </div>
 
       <label class="campo">
-        <span class="rotulo">E-mail corporativo <b class="obrig">*</b></span>
-        <input type="email" id="login-email" autocomplete="username"
-               inputmode="email" placeholder="nome.sobrenome@edp.com" enterkeyhint="next">
+        <span class="rotulo so-leitor">E-mail</span>
+        <span class="campo-icone icone-esq">
+          <svg class="ico-campo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></svg>
+          <input type="email" id="login-email" autocomplete="username"
+                 inputmode="email" placeholder="E-mail" enterkeyhint="next">
+        </span>
         <span class="erro" id="e-login-email"></span>
       </label>
 
       <label class="campo">
-        <span class="rotulo">Senha <b class="obrig">*</b></span>
-        <span class="campo-senha">
-          <input type="password" id="login-senha" autocomplete="current-password" enterkeyhint="go">
-          <button type="button" class="btn-olho" data-alvo="login-senha" aria-label="Mostrar senha">Mostrar</button>
+        <span class="rotulo so-leitor">Senha</span>
+        <span class="campo-senha campo-icone icone-esq">
+          <svg class="ico-campo" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/><path d="M12 14.5v2.5"/></svg>
+          <input type="password" id="login-senha" autocomplete="current-password" placeholder="Senha" enterkeyhint="go">
+          <button type="button" class="btn-olho" data-alvo="login-senha" aria-label="Mostrar senha"><svg class="olho-aberto" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="olho-fechado" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button>
         </span>
         <span class="erro" id="e-login-senha"></span>
       </label>
 
       <label class="campo campo-inline">
         <input type="checkbox" id="login-manter" checked>
-        <span>Manter conectado neste aparelho</span>
+        <span>Lembrar acesso</span>
       </label>
 
-      <button class="btn btn-primario btn-bloco" id="btn-login">Entrar</button>
+      <button class="btn btn-primario btn-bloco btn-entrar" id="btn-login">Entrar
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
 
       <div class="links-login">
-        <button type="button" class="btn btn-texto" id="link-cadastro">Criar cadastro</button>
-        <button type="button" class="btn btn-texto" id="link-esqueci">Esqueci minha senha</button>
+        <button type="button" class="btn btn-texto link-sublinhado" id="link-esqueci">Esqueci minha senha</button>
+        <p class="primeiro-acesso">Primeiro acesso?
+          <button type="button" class="btn btn-texto" id="link-cadastro">Criar cadastro</button></p>
       </div>
     </div>
 
-    <div class="cartao" id="cartao-instalacao">
-      <h2>Instalar na tela de início</h2>
+    <details class="instalar-dobra" id="cartao-instalacao">
+      <summary>Como instalar o app no celular</summary>
       <div class="abas" role="tablist">
         <button class="aba ativa" data-so="android" role="tab">Android</button>
         <button class="aba" data-so="ios" role="tab">iPhone / iPad</button>
@@ -122,14 +146,15 @@
           <li>Clique no ícone ⊕ na barra de endereço e confirme <b>Instalar</b>.</li>
         </ol>
       </div>
-    </div>
+    </details>
   </section>
 
   <!-- ===================================================================
        TELA — CADASTRO
        ================================================================ -->
   <section class="tela" id="tela-cadastro" hidden>
-    <div class="cartao">
+    <div class="bloco-marca bloco-marca-pequeno"><img src="assets/logo-edp50.png" alt="EDP 50 anos" class="logo-50"></div>
+    <div class="cartao cartao-vidro">
       <button type="button" class="btn btn-texto" id="voltar-login-1">‹ Voltar para o login</button>
       <h1>Criar cadastro</h1>
       <div class="aviso-embutido" id="aviso-cadastro-local" hidden>
@@ -174,7 +199,7 @@
         <span class="rotulo">Senha <b class="obrig">*</b></span>
         <span class="campo-senha">
           <input type="password" id="cad-senha" autocomplete="new-password">
-          <button type="button" class="btn-olho" data-alvo="cad-senha" aria-label="Mostrar senha">Mostrar</button>
+          <button type="button" class="btn-olho" data-alvo="cad-senha" aria-label="Mostrar senha"><svg class="olho-aberto" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="olho-fechado" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button>
         </span>
         <span class="apoio pequena">Mínimo de 8 caracteres, com pelo menos uma letra e um número.</span>
         <span class="erro" id="e-cad-senha"></span>
@@ -184,7 +209,7 @@
         <span class="rotulo">Confirmação da senha <b class="obrig">*</b></span>
         <span class="campo-senha">
           <input type="password" id="cad-senha2" autocomplete="new-password">
-          <button type="button" class="btn-olho" data-alvo="cad-senha2" aria-label="Mostrar senha">Mostrar</button>
+          <button type="button" class="btn-olho" data-alvo="cad-senha2" aria-label="Mostrar senha"><svg class="olho-aberto" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="olho-fechado" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A16.6 16.6 0 0 0 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg></button>
         </span>
         <span class="erro" id="e-cad-senha2"></span>
       </label>
@@ -199,7 +224,8 @@
        TELA — RECUPERAÇÃO DE SENHA
        ================================================================ -->
   <section class="tela" id="tela-recuperar" hidden>
-    <div class="cartao">
+    <div class="bloco-marca bloco-marca-pequeno"><img src="assets/logo-edp50.png" alt="EDP 50 anos" class="logo-50"></div>
+    <div class="cartao cartao-vidro">
       <button type="button" class="btn btn-texto" id="voltar-login-2">‹ Voltar para o login</button>
       <h1>Esqueci minha senha</h1>
       <div class="aviso-embutido alerta" id="aviso-recuperar-local" hidden>
@@ -584,7 +610,7 @@
       </div>
     </div>
 
-    <div class="cartao" id="cartao-logo">
+    <div class="cartao" id="cartao-logo" hidden>
       <h2>Logotipo da empresa</h2>
       <p class="apoio pequena">Use a versão <b>negativa</b> da marca (para fundo escuro),
          em PNG com fundo transparente. Ela passa a aparecer no cabeçalho, na tela de
@@ -668,20 +694,20 @@
      NAVEGAÇÃO INFERIOR
      ================================================================== -->
 <nav class="navegacao" id="navegacao" hidden>
-  <button type="button" data-ir="tela-nova" class="nav-item ativa">
-    <span class="icone">+</span><span>Nova</span>
+  <button type="button" data-ir="tela-nova" class="nav-item ativa" aria-label="Nova">
+    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6a1 1 0 0 1 1 1v1H8V5a1 1 0 0 1 1-1z"/><path d="M8 5H6.5A1.5 1.5 0 0 0 5 6.5v13A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 17.5 5H16"/><path d="M12 10v7M8.5 13.5h7"/></svg><span class="nav-rotulo">Nova</span>
   </button>
-  <button type="button" data-ir="tela-historico" class="nav-item">
-    <span class="icone">☰</span><span>Histórico</span>
+  <button type="button" data-ir="tela-historico" class="nav-item" aria-label="Histórico">
+    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4"/><path d="M12 7.5V12l3 2"/></svg><span class="nav-rotulo">Histórico</span>
   </button>
-  <button type="button" data-ir="tela-painel" class="nav-item">
-    <span class="icone">▦</span><span>Painel</span>
+  <button type="button" data-ir="tela-painel" class="nav-item" aria-label="Painel">
+    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><rect x="5.5" y="11" width="3" height="6" rx="1"/><rect x="10.5" y="6" width="3" height="11" rx="1"/><rect x="15.5" y="9" width="3" height="8" rx="1"/></svg><span class="nav-rotulo">Painel</span>
   </button>
-  <button type="button" data-ir="tela-sync" class="nav-item">
-    <span class="icone">⬇</span><span>Exportar</span>
+  <button type="button" data-ir="tela-sync" class="nav-item" aria-label="Exportar">
+    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10.5l4 4 4-4"/><path d="M4.5 15v3.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V15"/></svg><span class="nav-rotulo">Exportar</span>
   </button>
-  <button type="button" data-ir="tela-mais" class="nav-item">
-    <span class="icone">⋯</span><span>Mais</span>
+  <button type="button" data-ir="tela-mais" class="nav-item" aria-label="Mais">
+    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg><span class="nav-rotulo">Mais</span>
   </button>
 </nav>
 

@@ -4,7 +4,7 @@ Aplicativo web instalável (PWA) para registro de inspeções de canteiros,
 alojamentos, cozinhas/refeitórios e áreas de vivência — **EDP TRANSMISSÃO
 CONSTRUÇÃO** — com funcionamento integral **sem internet**.
 
-Versão 3.2.2 — sem servidor. Cada inspetor guarda as próprias inspeções no
+Versão 3.5.0 — sem servidor. Cada inspetor guarda as próprias inspeções no
 aparelho, emite os PDFs para o dossiê e envia a planilha mensal.
 
 ## Comece por aqui (2 minutos)
@@ -97,7 +97,7 @@ publish directory na raiz, preset **Other**.
 ### 2.4 Publicando uma nova versão
 Suba o número em **dois** lugares, senão os aparelhos continuam na versão antiga:
 
-- `service-worker.js` → `const VERSAO = 'v3.2.2';`
+- `service-worker.js` → `const VERSAO = 'v3.5.0';`
 - `config.js` → `CONFIG.app.versao`
 
 ---
@@ -241,47 +241,18 @@ e numeração de páginas.
 
 ## 7. Logotipo da empresa
 
-O pacote sai com um **placeholder marcado** (mostra a palavra LOGO). Para
-colocar a marca oficial há dois caminhos.
+A logo oficial da EDP (versão negativa, para fundo escuro) é **fixa no pacote**
+— ninguém precisa enviar logo pelo app:
 
-### 7.1 Pelo próprio aplicativo (recomendado)
+| Arquivo | Uso |
+|---|---|
+| `assets/edp-logo-neg.png` | cabeçalho e logo flutuante da tela de login |
+| `assets/logo-edp50.png` | logo comemorativa (EDP 50 anos · Há 30 anos no Brasil) nas telas de acesso |
+| `assets/login-fundo.jpg` / `login-fundo-largo.jpg` | foto de fundo das telas de acesso (celular / computador) |
+| `assets/logo-edp-base64.js` | faixa escura do PDF (funciona offline) |
 
-**Mais → Logotipo da empresa → Escolher arquivo.**
-
-Escolha o PNG da versão **negativa** da marca (a de fundo escuro, com fundo
-transparente). A troca é imediata: cabeçalho, tela de login e faixa dos
-relatórios em PDF passam a usar a sua logo. A imagem é redimensionada apenas
-de forma proporcional — nunca esticada nem recortada — e fica gravada no
-aparelho, sobrevivendo a fechar e reabrir o app.
-
-O botão **Voltar ao padrão** desfaz a qualquer momento.
-
-> A logo escolhida por aí vale **naquele aparelho**. É o caminho para um teste
-> rápido ou para um aparelho avulso.
-
-### 7.2 Para todos os aparelhos
-
-Ainda no mesmo cartão, abra **"Aplicar em todos os aparelhos"** e clique em
-**Baixar arquivos para publicar**. O app gera seis arquivos:
-
-| Arquivo | Vai para | Serve para |
-|---|---|---|
-| `edp-logo-neg.png` | `assets/` | cabeçalho e tela de login |
-| `logo-edp-base64.js` | `assets/` | faixa do PDF (funciona offline) |
-| `icon-192.png` | `icons/` | ícone do app instalado |
-| `icon-512.png` | `icons/` | ícone em alta resolução |
-| `icon-512-maskable.png` | `icons/` | ícone adaptativo do Android |
-| `apple-touch-icon.png` | `icons/` | ícone do iPhone |
-
-Substitua os arquivos nas pastas indicadas, **suba a versão** (seção 2.4) e
-republique. Os ícones saem centralizados sobre o `#1A1F2E`, respeitando a área
-de proteção da marca — maior no *maskable*, que o Android recorta em círculo.
-
-O ícone do aplicativo **instalado** só muda por este caminho: o `manifest.json`
-é lido pelo sistema operacional na instalação, não pelo app em execução.
-
-A ferramenta `ferramentas/gerar-identidade.html` continua no pacote e faz o
-mesmo, para quem preferir preparar os arquivos sem entrar no app.
+Para trocar a marca no futuro, substitua esses três arquivos e suba a versão
+(seção 2.4). O cartão de envio de logo da tela **Mais** fica oculto.
 
 ## 8. Instalação no aparelho do inspetor
 

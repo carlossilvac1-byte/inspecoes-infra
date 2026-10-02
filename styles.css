@@ -208,14 +208,17 @@ input:disabled, select:disabled { background: #EEF2F5; color: #8A94A0; }
 
 /* Senha com botão mostrar */
 .campo-senha { position: relative; display: block; }
-.campo-senha input { padding-right: 92px; }
+.campo-senha input { padding-right: 56px; }
 .btn-olho {
-  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  min-height: 38px; padding: 6px 12px; font-size: 13.5px; font-weight: 600;
-  font-family: inherit; color: var(--primaria-esc);
-  background: #EAF6F5; border: 1px solid #BFE3DF; border-radius: var(--raio-botao);
-  cursor: pointer;
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 46px; height: 42px; padding: 0; display: grid; place-items: center;
+  color: var(--texto-apoio); background: none; border: 0; border-radius: 10px; cursor: pointer;
 }
+.btn-olho svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.btn-olho .olho-fechado { display: none; }
+.btn-olho.visivel .olho-aberto { display: none; }
+.btn-olho.visivel .olho-fechado { display: block; }
+.btn-olho:focus-visible { outline: 2px solid var(--primaria); outline-offset: 1px; }
 
 /* Seleção múltipla */
 .lista-check { display: grid; gap: 8px; }
@@ -502,24 +505,43 @@ details summary {
 /* NAVEGAÇÃO INFERIOR                                               */
 /* ---------------------------------------------------------------- */
 .navegacao {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
-  display: grid; grid-template-columns: repeat(5, 1fr);
-  background: var(--azul-marinho);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  box-shadow: 0 -2px 8px rgba(26,31,46,.3);
+  /* Barra flutuante: cápsula escura afastada das bordas */
+  position: fixed; z-index: 45;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  width: min(560px, calc(100% - 20px)); height: 68px;
+  display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
+  padding: 0 6px; border-radius: 26px;
+  background: linear-gradient(180deg, #232A3A 0%, #161B27 100%);
+  border: 1px solid rgba(255,255,255,.07);
+  box-shadow: 0 14px 34px rgba(12,16,25,.45), 0 2px 6px rgba(12,16,25,.25), inset 0 1px 0 rgba(255,255,255,.06);
 }
 .nav-item {
-  position: relative; background: none; border: 0; color: #93A1B0;
-  padding: 8px 2px 10px; min-height: 58px; cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  font-size: 11.5px; font-family: inherit; font-weight: 600;
+  position: relative; height: 56px; margin: 0 3px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  background: transparent; border: 0; border-radius: 19px; cursor: pointer;
+  color: #8A94A7; font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: .1px;
+  transition: transform .28s cubic-bezier(.3,1.4,.5,1), background-color .2s, color .2s, box-shadow .28s;
 }
-.nav-item .icone { font-size: 20px; line-height: 1; }
-.nav-item.ativa { color: var(--realce); }
-.nav-item.ativa::before {
-  content: ''; position: absolute; top: 0; left: 20%; right: 20%;
-  height: 3px; background: var(--realce); border-radius: 0 0 3px 3px;
+.nav-item .icone {
+  width: 24px; height: 24px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
 }
+.nav-item:hover { color: #D5DCE6; }
+.nav-item:focus-visible { outline: 2px solid var(--realce); outline-offset: 2px; }
+/* Aba ativa: sobe da barra numa cápsula verde-água com brilho */
+.nav-item.ativa {
+  color: #FFFFFF; transform: translateY(-9px);
+  background: linear-gradient(180deg, #34BFB1 0%, #1E8378 100%);
+  box-shadow: 0 0 0 4px #1B2130, 0 10px 22px rgba(38,166,154,.45), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.nav-item.ativa .icone { stroke-width: 2; }
+.nav-item.ativa::after {
+  content: ''; position: absolute; bottom: -12px; left: 50%; width: 5px; height: 5px;
+  margin-left: -2.5px; border-radius: 50%; background: var(--realce);
+  box-shadow: 0 0 8px var(--realce);
+}
+main { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
 .selo-nav {
   position: absolute; top: 4px; right: 20%;
   background: var(--pendente); color: var(--azul-marinho); font-style: normal;
@@ -560,16 +582,18 @@ details summary {
   .grade-fotos, .galeria { grid-template-columns: repeat(3, 1fr); }
   .grade-filtros { grid-template-columns: repeat(3, 1fr); }
   .cartoes-indicador { grid-template-columns: repeat(3, 1fr); }
-  main { padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+  main { padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (min-width: 900px) {
   .grade-fotos, .galeria { grid-template-columns: repeat(4, 1fr); }
   .cartoes-indicador { grid-template-columns: repeat(6, 1fr); }
 }
 @media (max-height: 480px) and (orientation: landscape) {
-  .nav-item { min-height: 46px; font-size: 10.5px; }
-  .nav-item .icone { font-size: 16px; }
-  main { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+  .navegacao { height: 56px; }
+  .nav-item { height: 46px; font-size: 10px; }
+  .nav-item .icone { width: 20px; height: 20px; }
+  .nav-item.ativa { transform: translateY(-6px); }
+  main { padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
   .bloco-marca { padding: 16px; }
   .marca-login { height: 36px; }
 }
@@ -638,6 +662,186 @@ main:has(> #tela-painel:not([hidden])) { max-width: 1760px; padding-left: 16px; 
 .caixa-arquivo .arq-dica { margin: 0 0 14px; }
 .arq-botoes { display: grid; gap: 8px; }
 .arq-botoes .btn[hidden] { display: none; }
+
+
+/* =================================================================== */
+/* TELAS DE ACESSO (login, cadastro, senha)                            */
+/* Torres de transmissão ao pôr do sol + cartão escuro com borda em    */
+/* degradê verde → azul.                                               */
+/* =================================================================== */
+.fundo-animado { display: none; }
+.so-leitor { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+body.modo-publico { background: #07101F; }
+body.modo-publico .cabecalho { display: none; }
+
+body.modo-publico .fundo-animado { display: block; position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.fl-foto {
+  position: absolute; inset: 0;
+  background: #0B1A33 url(assets/login-fundo.jpg) 74% 38% / cover no-repeat;
+  animation: fl-respirar 30s ease-in-out infinite alternate;
+}
+.fl-veu {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(6,14,32,.30) 0%, rgba(6,14,32,.08) 28%, rgba(6,14,32,.45) 55%, rgba(5,11,24,.92) 100%);
+}
+.fl-energia { position: absolute; left: 0; bottom: 0; width: 100%; height: 62%; overflow: visible; }
+.fl-linha { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; opacity: .55; }
+.fl-linha.l1 { stroke: url(#fl-g1); } .fl-linha.l2 { stroke: url(#fl-g2); opacity: .4; }
+.fl-pulso { fill: none; stroke-width: 3; vector-effect: non-scaling-stroke; stroke-linecap: round;
+  stroke-dasharray: 90 1400; stroke-dashoffset: 1500; filter: drop-shadow(0 0 6px rgba(43,240,138,.9)); }
+.fl-pulso.p1 { stroke: #7CFFC0; animation: fl-correr 5.5s cubic-bezier(.45,.05,.55,.95) infinite; }
+.fl-pulso.p2 { stroke: #8FB8FF; animation: fl-correr 7s cubic-bezier(.45,.05,.55,.95) 2.2s infinite; filter: drop-shadow(0 0 6px rgba(80,140,255,.9)); }
+@keyframes fl-correr { to { stroke-dashoffset: 0; } }
+@keyframes fl-respirar { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+/* Estrutura — celular: logo no alto, cartão embaixo */
+body.modo-publico main {
+  position: relative; z-index: 1; max-width: 480px;
+  padding: calc(env(safe-area-inset-top, 0px) + 22px) 16px calc(env(safe-area-inset-bottom, 0px) + 22px);
+}
+body.modo-publico #tela-login { display: flex; flex-direction: column; min-height: calc(100dvh - 44px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+body.modo-publico .bloco-marca {
+  background: none; box-shadow: none; border-radius: 0; padding: 4px 2px 24px; margin: 0; text-align: left;
+}
+.logo-50 { display: block; width: min(250px, 66vw); height: auto; }
+.bloco-marca-pequeno .logo-50 { width: min(190px, 52vw); }
+body.modo-publico .cartao-login { margin-top: auto; }
+
+/* Cartão escuro com borda em degradê */
+body.modo-publico .cartao-vidro {
+  position: relative; color: #fff; border-radius: 22px; padding: 28px 22px 20px;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(160deg, rgba(14,27,52,.86), rgba(7,15,32,.92)) padding-box,
+    linear-gradient(140deg, #1FE37B 0%, #22C7E8 45%, #2B6CFF 100%) border-box;
+  -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%);
+  box-shadow: 0 28px 70px rgba(2,8,20,.6), 0 0 34px rgba(43,108,255,.18);
+}
+body.modo-publico .cartao-vidro h1 { color: #fff; font-size: 32px; font-weight: 800; letter-spacing: -.3px; margin: 0 0 6px; }
+body.modo-publico .cartao-vidro h2 { color: #fff; }
+.sub-vidro { display: none; }
+body.modo-publico .sub-vidro { display: block; margin: 0 0 24px; color: #B9C7DA; font-size: 16px; }
+body.modo-publico .cartao-vidro .rotulo, body.modo-publico .cartao-vidro legend.rotulo { color: #D5DFEC; font-weight: 600; font-size: 13.5px; }
+body.modo-publico .cartao-vidro .obrig { color: #FF9C9C; }
+body.modo-publico .cartao-vidro .apoio { color: #A9B8CC; }
+body.modo-publico .cartao-vidro .btn-texto { color: #9CC2FF; }
+
+body.modo-publico .cartao-vidro input[type=text],
+body.modo-publico .cartao-vidro input[type=email],
+body.modo-publico .cartao-vidro input[type=password],
+body.modo-publico .cartao-vidro select {
+  color: #fff; min-height: 56px; border-radius: 12px; font-size: 16.5px;
+  background-color: rgba(255,255,255,.035); border: 1px solid rgba(214,226,245,.26);
+}
+body.modo-publico .cartao-vidro select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24'><path fill='%23FFFFFF' d='M7 10l5 5 5-5z'/></svg>");
+}
+body.modo-publico .cartao-vidro select option { color: var(--texto); }
+body.modo-publico .cartao-vidro input::placeholder { color: #8E9CB2; }
+body.modo-publico .cartao-vidro input:focus, body.modo-publico .cartao-vidro select:focus {
+  border-color: #4C8DFF; background-color: rgba(76,141,255,.08); box-shadow: 0 0 0 3px rgba(76,141,255,.22);
+}
+body.modo-publico .cartao-vidro .campo.invalido input { border-color: #FF8A8A; background-color: rgba(255,90,90,.10); }
+body.modo-publico .cartao-vidro .erro { color: #FFB4B4; }
+
+/* Ícones dentro dos campos */
+.campo-icone { position: relative; display: block; }
+.ico-campo { position: absolute; top: 50%; transform: translateY(-50%); width: 22px; height: 22px;
+  fill: none; stroke: var(--texto-apoio); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.campo-icone:not(.icone-esq) .ico-campo { right: 16px; }
+.campo-icone:not(.icone-esq) input { padding-right: 52px; }
+.icone-esq .ico-campo { left: 16px; }
+.icone-esq input { padding-left: 54px !important; }
+body.modo-publico .ico-campo { stroke: #E6EEF9; }
+body.modo-publico .btn-olho { color: #E6EEF9; }
+body.modo-publico .btn-olho:hover { background: rgba(255,255,255,.08); }
+
+/* Caixa "Lembrar acesso" */
+body.modo-publico .cartao-vidro .campo-inline { color: #E6EEF9; margin: 4px 0 20px; }
+body.modo-publico .cartao-vidro input[type=checkbox] {
+  appearance: none; -webkit-appearance: none; width: 24px; height: 24px; min-height: 24px; flex: none; margin: 0;
+  border-radius: 6px; border: 1.5px solid rgba(214,226,245,.55); background: transparent; cursor: pointer;
+}
+body.modo-publico .cartao-vidro input[type=checkbox]:checked {
+  border-color: #2F7BFF;
+  background: #2F7BFF url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' d='M5 12.5l4.5 4.5L19 7.5'/></svg>") center/17px no-repeat;
+}
+body.modo-publico .cartao-vidro input[type=checkbox]:focus-visible { outline: 2px solid #8FB8FF; outline-offset: 2px; }
+body.modo-publico .cartao-vidro .lista-check > label { background: rgba(255,255,255,.04); border: 1px solid rgba(214,226,245,.22); color: #fff; border-radius: 12px; }
+body.modo-publico .cartao-vidro .lista-check > label.marcado { background: rgba(47,123,255,.16); border-color: #4C8DFF; }
+
+/* Botão ENTRAR — degradê verde → azul */
+body.modo-publico .cartao-vidro .btn-primario {
+  min-height: 58px; border-radius: 12px; border: 0; color: #fff;
+  font-size: 16px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  background: linear-gradient(90deg, #12D46E 0%, #14B8C9 48%, #1F6BFF 100%);
+  box-shadow: 0 12px 28px rgba(31,107,255,.32);
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+}
+body.modo-publico .cartao-vidro .btn-primario svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+body.modo-publico .cartao-vidro .btn-primario:hover { filter: brightness(1.06); }
+body.modo-publico .cartao-vidro .btn-primario:active { transform: translateY(1px); }
+.btn-entrar svg { display: none; }
+body.modo-publico .btn-entrar svg { display: block; }
+
+/* Links abaixo do botão */
+body.modo-publico .links-login { flex-direction: column; align-items: center; gap: 2px; margin-top: 10px; }
+body.modo-publico .link-sublinhado { color: #8FB8FF; text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+.primeiro-acesso { display: none; }
+body.modo-publico .primeiro-acesso { display: block; margin: 0; color: #A9B8CC; font-size: 15px; text-align: center; }
+body.modo-publico .primeiro-acesso .btn-texto { color: #4BE89A; font-weight: 800; padding: 10px 4px; display: inline; min-height: 0; }
+body.modo-publico #aviso-modo-local { display: none !important; }   /* a orientação já está no "Primeiro acesso?" */
+body.modo-publico .cartao-vidro .aviso-embutido { background: rgba(255,255,255,.06); border: 1px solid rgba(214,226,245,.2); color: #E6EEF9; }
+body.modo-publico .cartao-vidro .aviso-embutido.alerta { background: rgba(249,168,37,.14); border-color: rgba(249,168,37,.45); }
+
+/* "Como instalar o app" recolhido sob o cartão */
+.instalar-dobra { margin-top: 14px; }
+body.modo-publico .instalar-dobra { color: #D5DFEC; text-align: center; }
+body.modo-publico .instalar-dobra summary {
+  list-style: none; display: inline-flex; justify-content: center; min-height: 44px; align-items: center;
+  color: #C9D6E8; font-weight: 600; font-size: 14.5px; cursor: pointer;
+}
+.instalar-dobra summary::-webkit-details-marker { display: none; }
+body.modo-publico .instalar-dobra summary::after { content: '▾'; margin-left: 8px; transition: transform .2s; }
+body.modo-publico .instalar-dobra[open] summary::after { transform: rotate(180deg); }
+body.modo-publico .instalar-dobra[open] {
+  text-align: left; background: rgba(7,15,32,.82); border: 1px solid rgba(214,226,245,.18);
+  border-radius: 16px; padding: 4px 16px 14px;
+}
+body.modo-publico .instalar-dobra .aba { background: rgba(255,255,255,.05); border-color: rgba(214,226,245,.25); color: #D5DFEC; }
+body.modo-publico .instalar-dobra .aba.ativa { background: rgba(47,123,255,.2); border-color: #4C8DFF; color: #fff; }
+body.modo-publico .instalar-dobra li { color: #D5DFEC; }
+body.modo-publico .instalar-dobra .btn-secundario { background: rgba(255,255,255,.08); color: #fff; border-color: rgba(214,226,245,.3); }
+body.modo-publico .avisos { position: relative; z-index: 2; }
+body.modo-publico #tela-cadastro .bloco-marca, body.modo-publico #tela-recuperar .bloco-marca { padding-bottom: 18px; }
+
+/* Computador e tablet deitado: logo no canto superior esquerdo, cartão à direita */
+@media (min-width: 900px) {
+  .fl-foto { background-image: url(assets/login-fundo-largo.jpg); background-position: 0% 45%; }
+  .fl-veu { background: linear-gradient(90deg, rgba(6,14,32,.25) 0%, rgba(6,14,32,.05) 45%, rgba(6,14,32,.40) 100%),
+                        linear-gradient(180deg, rgba(6,14,32,.25) 0%, rgba(6,14,32,0) 40%, rgba(6,14,32,.35) 100%); }
+  .fl-energia { width: 70%; height: 55%; }
+  body.modo-publico main { max-width: none; padding: 0; }
+  body.modo-publico #tela-login {
+    display: grid; min-height: 100dvh; padding: 6vh 7vw;
+    grid-template-columns: 1fr minmax(380px, 470px); grid-template-rows: auto 1fr auto; column-gap: 6vw;
+  }
+  body.modo-publico #tela-login .bloco-marca { grid-column: 1; grid-row: 1; }
+  .logo-50 { width: clamp(260px, 24vw, 380px); }
+  body.modo-publico .cartao-login { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin: 0; padding: 40px 38px 26px; }
+  body.modo-publico .instalar-dobra { grid-column: 2; grid-row: 3; }
+  body.modo-publico .cartao-vidro h1 { font-size: 40px; }
+  body.modo-publico #tela-cadastro, body.modo-publico #tela-recuperar { max-width: 520px; margin: 0 auto; padding: 5vh 0; }
+}
+/* Sem desfoque disponível: cartão sólido */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  body.modo-publico .cartao-vidro { background: linear-gradient(#0C1830, #0C1830) padding-box, linear-gradient(140deg, #1FE37B, #2B6CFF) border-box; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fl-foto, .fl-pulso { animation: none !important; }
+  .fl-pulso { display: none; }
+  .nav-item { transition: none; }
+}
 
 @media print {
   .cabecalho, .navegacao, .barra-acoes, .avisos { display: none !important; }
