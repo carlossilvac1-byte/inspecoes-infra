@@ -43,8 +43,8 @@ const CONFIG = {
    * o app funciona no modo local, sem base central.
    * ----------------------------------------------------------------- */
   supabase: {
-    url: 'https://SEUPROJETO.supabase.co',
-    anonKey: 'COLOQUE-AQUI-A-CHAVE-ANON',
+    url: 'https://tmmwankyqnrapamronuv.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtbXdhbmt5cW5yYXBhbXJvbnV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5NzU0ODMsImV4cCI6MjEwNjU1MTQ4M30.4tZ_R0ARSGEEL53UuKOCXPqSzymWE__jL_nv2FrjOZ4',
     tabelaUsuarios: 'usuarios',
     tabelaInspecoes: 'inspecoes',
     bucketFotos: 'fotos-inspecao'
