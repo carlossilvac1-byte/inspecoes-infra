@@ -833,6 +833,47 @@ body.modo-publico #tela-cadastro .bloco-marca, body.modo-publico #tela-recuperar
   body.modo-publico .cartao-vidro h1 { font-size: 40px; }
   body.modo-publico #tela-cadastro, body.modo-publico #tela-recuperar { max-width: 520px; margin: 0 auto; padding: 5vh 0; }
 }
+
+/* ---------- Boas-vindas (após o login) ---------- */
+body.modo-publico #tela-boasvindas { display: flex; flex-direction: column;
+  min-height: calc(100dvh - 44px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+.bv-saudacao { color: #fff; padding: 6px 2px 0; }
+.bv-ola { margin: 0; font-size: 22px; color: #AFC4DD; font-weight: 500; }
+.bv-titulo { margin: 2px 0 14px; font-size: 38px; line-height: 1.08; font-weight: 800; letter-spacing: -.5px; color: #fff;
+  text-shadow: 0 2px 18px rgba(4,12,28,.45); }
+.bv-traco { display: block; width: 120px; height: 4px; border-radius: 4px; background: linear-gradient(90deg, #1FE37B, #2B6CFF); }
+body.modo-publico .cartao-bv { margin-top: auto; text-align: center; padding: 34px 24px 26px; overflow: hidden; }
+/* arco decorativo no canto do cartão, como no modelo */
+body.modo-publico .cartao-bv::before {
+  content: ''; position: absolute; right: -90px; top: -90px; width: 240px; height: 240px; border-radius: 50%;
+  border: 26px solid rgba(43,108,255,.10); pointer-events: none;
+}
+.bv-icone { width: 76px; height: 76px; fill: none; stroke: url(#bv-g); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 10px rgba(43,240,138,.35)); }
+body.modo-publico .cartao-vidro .bv-cartao-titulo { font-size: 28px; font-weight: 800; margin: 14px 0 22px; color: #fff; }
+body.modo-publico .cartao-vidro .btn-iniciar {
+  position: relative; text-transform: none; letter-spacing: 0; font-size: 18px; font-weight: 700; min-height: 62px; border-radius: 16px;
+}
+.bv-seta { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.85); display: grid; place-items: center; }
+.bv-seta svg { width: 20px !important; height: 20px !important; }
+body.modo-publico .cartao-vidro .btn-iniciar:hover .bv-seta { transform: translate(3px, -50%); transition: transform .2s; }
+
+@media (min-width: 900px) {
+  body.modo-publico #tela-boasvindas {
+    display: grid; min-height: 100dvh; padding: 6vh 7vw;
+    grid-template-columns: 1fr minmax(380px, 470px); grid-template-rows: auto 1fr; column-gap: 6vw;
+  }
+  body.modo-publico #tela-boasvindas .bloco-marca { grid-column: 1; grid-row: 1; }
+  .bv-saudacao { grid-column: 1; grid-row: 2; align-self: start; padding-top: 6vh; }
+  .bv-ola { font-size: 30px; }
+  .bv-titulo { font-size: 56px; }
+  .bv-traco { width: 150px; }
+  body.modo-publico .cartao-bv { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin: 0; padding: 48px 40px 40px; }
+  .bv-icone { width: 92px; height: 92px; }
+  body.modo-publico .cartao-vidro .bv-cartao-titulo { font-size: 34px; }
+}
+
 /* Sem desfoque disponível: cartão sólido */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   body.modo-publico .cartao-vidro { background: linear-gradient(#0C1830, #0C1830) padding-box, linear-gradient(140deg, #1FE37B, #2B6CFF) border-box; }

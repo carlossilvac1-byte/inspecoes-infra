@@ -73,7 +73,7 @@
 
     <div class="cartao cartao-vidro cartao-login">
       <h1>Bem-vindo!</h1>
-      <p class="sub-vidro">Faça seu login para acessar o sistema.</p>
+      <p class="sub-vidro">Faça seu login para acessar o app.</p>
       <div class="aviso-embutido" id="aviso-modo-local" hidden>
         <b>Primeiro acesso?</b> Toque em <i>Criar cadastro</i>: a conta é criada neste
         aparelho, sem precisar de internet, e os registros ficam guardados nele.
@@ -243,6 +243,36 @@
         <span class="erro" id="e-rec-email"></span>
       </label>
       <button class="btn btn-primario btn-bloco" id="btn-recuperar">Enviar link de redefinição</button>
+    </div>
+  </section>
+
+  <!-- ===================================================================
+       TELA — BOAS-VINDAS (logo após o login)
+       ================================================================ -->
+  <section class="tela" id="tela-boasvindas" hidden>
+    <div class="bloco-marca">
+      <img src="assets/logo-edp50.png" alt="EDP 50 anos — Há 30 anos no Brasil" class="logo-50">
+    </div>
+
+    <div class="bv-saudacao">
+      <p class="bv-ola">Olá<span id="bv-nome"></span>,</p>
+      <h1 class="bv-titulo">Seja bem-vindo!</h1>
+      <span class="bv-traco" aria-hidden="true"></span>
+    </div>
+
+    <div class="cartao cartao-vidro cartao-bv">
+      <svg class="bv-icone" viewBox="0 0 64 64" aria-hidden="true">
+        <defs><linearGradient id="bv-g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#2BF08A"/><stop offset="1" stop-color="#22C7E8"/></linearGradient></defs>
+        <path d="M23 10h18a2 2 0 0 1 2 2v4H21v-4a2 2 0 0 1 2-2z"/>
+        <path d="M21 14h-6a4 4 0 0 0-4 4v36a4 4 0 0 0 4 4h34a4 4 0 0 0 4-4V18a4 4 0 0 0-4-4h-6"/>
+        <path d="M24 28l8 7 8-7M24 38l8 7 8-7"/>
+      </svg>
+      <h2 class="bv-cartao-titulo">Iniciar inspeção</h2>
+      <button type="button" class="btn btn-primario btn-bloco btn-iniciar" id="btn-iniciar-inspecao">
+        <span class="bv-seta" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        <span>Iniciar inspeção</span>
+      </button>
     </div>
   </section>
 

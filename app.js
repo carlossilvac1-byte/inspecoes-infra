@@ -24,6 +24,8 @@ const APP = (function () {
   const $$ = (sel) => Array.prototype.slice.call(document.querySelectorAll(sel));
 
   const TELAS_PUBLICAS = ['tela-login', 'tela-cadastro', 'tela-recuperar'];
+  // Telas com o visual de acesso (foto de fundo, sem cabeçalho e sem barra inferior)
+  const TELAS_VISUAL_ACESSO = TELAS_PUBLICAS.concat(['tela-boasvindas']);
 
   /* ===================================================================
    * UTILIDADES DE INTERFACE
@@ -69,7 +71,8 @@ const APP = (function () {
     estado.tela = id;
     $$('.tela').forEach(t => { t.hidden = (t.id !== id); });
     $$('.nav-item').forEach(b => b.classList.toggle('ativa', b.dataset.ir === id));
-    $('#navegacao').hidden = TELAS_PUBLICAS.indexOf(id) !== -1;
+    $('#navegacao').hidden = TELAS_VISUAL_ACESSO.indexOf(id) !== -1;
+    document.body.classList.toggle('modo-publico', TELAS_VISUAL_ACESSO.indexOf(id) !== -1);
     window.scrollTo(0, 0);
     if (id === 'tela-historico') carregarHistorico();
     if (id === 'tela-sync') atualizarTelaSync();
@@ -296,7 +299,8 @@ const APP = (function () {
     if (!alvo) return;
     const mostrando = alvo.type === 'text';
     alvo.type = mostrando ? 'password' : 'text';
-    botao.textContent = mostrando ? 'Mostrar' : 'Ocultar';
+    botao.classList.toggle('visivel', !mostrando);
+    botao.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
   }
 
   function atualizarAvisosDeRede() {
@@ -474,7 +478,15 @@ const APP = (function () {
     $('#cartao-graf-responsavel').hidden = !AUTH.ehAdmin();
     await DB.solicitarPersistencia();
     await atualizarBadges();
-    await novaInspecao();
+    mostrarBoasVindas();
+  }
+
+  /** Tela de boas-vindas: primeira tela após o login (e ao abrir o app já logado). */
+  function mostrarBoasVindas() {
+    const p = AUTH.perfil();
+    const primeiro = p && p.nome ? String(p.nome).trim().split(/\s+/)[0] : '';
+    $('#bv-nome').textContent = primeiro ? ', ' + primeiro : '';
+    mostrarTela('tela-boasvindas');
   }
 
   async function sairDaConta() {
@@ -1325,18 +1337,10 @@ const APP = (function () {
 
   /** Aplica na tela a logo gravada (ou a do pacote). */
   async function aplicarLogo() {
-    let dados = null;
-    try { dados = await DB.kvGet(LOGO_CHAVE, null); } catch (e) { /* banco indisponível */ }
-    const src = (dados && dados.dataUrl) ? dados.dataUrl : LOGO_PADRAO;
-    $$('.cab-logo, .marca-login, #previa-logo').forEach(img => { img.src = src; });
-    const txt = $('#txt-logo-atual');
-    if (txt) {
-      txt.textContent = dados
-        ? ('Logotipo próprio: ' + (dados.nome || 'arquivo enviado') +
-           ' — ' + dados.largura + '×' + dados.altura + ' px, aplicado em ' + dataBR(dados.em))
-        : 'Logotipo padrão do pacote.';
-    }
-    return dados;
+    // A logo oficial da EDP é fixa no pacote: não depende de envio no aparelho.
+    $$('.cab-logo, .marca-login, #previa-logo, .fa-logo-img').forEach(img => { img.src = LOGO_PADRAO; });
+    document.body.dataset.logo = 'oficial';
+    return null;
   }
 
   /** Lê o arquivo escolhido, normaliza e grava. */
@@ -1640,6 +1644,7 @@ const APP = (function () {
     $('#btn-login').addEventListener('click', fazerLogin);
     $('#login-senha').addEventListener('keydown', e => { if (e.key === 'Enter') fazerLogin(); });
     $('#link-cadastro').addEventListener('click', () => { mostrarTela('tela-cadastro'); atualizarAvisosDeRede(); });
+    $('#btn-iniciar-inspecao').addEventListener('click', () => novaInspecao());
     $('#link-esqueci').addEventListener('click', () => { mostrarTela('tela-recuperar'); atualizarAvisosDeRede(); });
     $('#voltar-login-1').addEventListener('click', () => mostrarTela('tela-login'));
     $('#voltar-login-2').addEventListener('click', () => mostrarTela('tela-login'));

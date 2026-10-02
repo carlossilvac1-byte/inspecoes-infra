@@ -78,18 +78,7 @@ const PDFGEN = (function () {
   async function logo() {
     if (logoCache !== null) return logoCache;
 
-    try {
-      const propria = await DB.kvGet('logoEmpresa', null);
-      if (propria && propria.dataUrl) {
-        logoCache = {
-          dataUrl: propria.dataUrl,
-          largura: propria.largura || 400,
-          altura: propria.altura || 120
-        };
-        return logoCache;
-      }
-    } catch (e) { /* segue para o embutido */ }
-
+    // Logo oficial fixa no pacote (assets/logo-edp-base64.js).
     if (typeof LOGO_EDP_BASE64 === 'string' && LOGO_EDP_BASE64.length > 100) {
       logoCache = {
         dataUrl: LOGO_EDP_BASE64.indexOf('data:') === 0

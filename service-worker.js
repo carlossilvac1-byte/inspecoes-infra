@@ -9,7 +9,7 @@
  * altere VERSAO abaixo — é o que dispara a limpeza dos caches antigos.
  * ===================================================================== */
 
-const VERSAO = 'v3.5.0';
+const VERSAO = 'v3.6.0';
 const CACHE = 'inspecao-infra-' + VERSAO;
 
 /* Todos os arquivos necessários para o app funcionar 100% offline —
