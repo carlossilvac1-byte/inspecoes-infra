@@ -27,19 +27,41 @@ const CONFIG = {
     nomeCurto: 'Inspeções Infra',
     obra: 'EDP TRANSMISSÃO CONSTRUÇÃO',
     empresa: 'EDP TRANSMISSÃO CONSTRUÇÃO',
-    versao: '3.6.0',
+    versao: '4.0.0',
     // Logo oficial da EDP fixa em assets/ (edp-logo-neg.png, edp-simbolo.png
     // e logo-edp-base64.js para o PDF).
     logoOficialNoPacote: true
   },
 
   /* -------------------------------------------------------------------
+   * 1.1 BASE CENTRAL (Supabase)
+   * -------------------------------------------------------------------
+   * Preencha "url" e "anonKey" com os dados do seu projeto
+   * (Supabase > Project Settings > API). A chave "anon" é pública por
+   * natureza: quem protege os dados são as regras do banco
+   * (banco/supabase.sql). Enquanto estiver com os textos de exemplo,
+   * o app funciona no modo local, sem base central.
+   * ----------------------------------------------------------------- */
+  supabase: {
+    url: 'https://SEUPROJETO.supabase.co',
+    anonKey: 'COLOQUE-AQUI-A-CHAVE-ANON',
+    tabelaUsuarios: 'usuarios',
+    tabelaInspecoes: 'inspecoes',
+    bucketFotos: 'fotos-inspecao'
+  },
+
+  sync: {
+    intervaloSegundos: 30,     // envio e recebimento automáticos com o app aberto
+    maxTentativas: 5
+  },
+
+  /* -------------------------------------------------------------------
    * 2. ACESSO
    * ----------------------------------------------------------------- */
   auth: {
-    diasSessaoOffline: 3650,   // sem servidor, a conta local não expira
+    diasSessaoOffline: 30,     // dias sem internet em que o login continua valendo
     minimoSenha: 8,            // com ao menos uma letra e um número
-    funcoes: ['Consultor', 'Analista', 'Especialista', 'Gestor', 'Outro']
+    funcoes: ['Consultor', 'Analista', 'Especialista', 'Gestor', 'Diretor', 'Outro']
   },
 
   /* -------------------------------------------------------------------

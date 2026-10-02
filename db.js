@@ -430,13 +430,100 @@ const DB = (function () {
     return registro;
   }
 
+  /** O usuário logado pode ver este registro neste aparelho? */
+  function podeVer(r, u) {
+    u = u || usuarioAtual();
+    if (!u || !r.usuarioId || r.usuarioId === u) return true;
+    return !!(window.AUTH && AUTH.veTodas && AUTH.veTodas() && r.origem === 'servidor');
+  }
+
+  /** O registro é do usuário logado (pode editar/excluir)? */
+  function ehMeu(r) {
+    const u = usuarioAtual();
+    return !!r && (!r.usuarioId || r.usuarioId === u);
+  }
+
   async function obterInspecao(id) {
     const r = await db.inspecoes.get(id);
     if (!r) return null;
-    // Barreira de tela: registro de outro usuário não é devolvido.
-    const u = usuarioAtual();
-    if (u && r.usuarioId && r.usuarioId !== u) return null;
+    // Barreira de tela: registro que o usuário não pode ver não é devolvido.
+    if (!podeVer(r)) return null;
     return r;
+  }
+
+  /**
+   * Grava uma inspeção recebida da base central. Nunca passa por cima de
+   * uma edição local que ainda não subiu. Devolve true se gravou algo novo.
+   */
+  async function salvarRecebida(l) {
+    const local = await db.inspecoes.get(l.id_local);
+    if (local && (local.status === 'pendente' || local.status === 'erro')) return false;
+    if (local && local.atualizadoEm && l.atualizado_em &&
+        new Date(local.atualizadoEm).getTime() >= new Date(l.atualizado_em).getTime() &&
+        local.origem !== 'servidor') {
+      // É o nosso próprio envio voltando: só registra os caminhos das fotos.
+      local.fotosRemotas = l.fotos || local.fotosRemotas || [];
+      await db.inspecoes.put(local);
+      return false;
+    }
+    const itens = Array.isArray(l.o_que_inspecionado) ? l.o_que_inspecionado : [];
+    const reg = Object.assign({}, local || {}, {
+      id: l.id_local,
+      usuarioId: l.usuario_id,
+      origem: (local && local.usuarioId === usuarioAtual() && local.origem !== 'servidor') ? 'aparelho' : 'servidor',
+      responsavel: l.responsavel,
+      funcaoResponsavel: l.funcao_responsavel || '',
+      dataInspecao: l.data_inspecao,
+      lote: l.lote,
+      canteiro: l.canteiro, canteiroOutro: '',
+      empresa: l.construtora, empresaOutro: '',
+      inspecionado: itens, inspecionadoOutro: '',
+      checklist: l.checklist || {},
+      naoConformidade: l.nao_conformidade ? 'Sim' : 'Não',
+      quais: l.quais || '',
+      observacoes: l.observacoes || '',
+      latitude: l.latitude, longitude: l.longitude, precisaoGps: l.precisao_gps,
+      obsGeo: (l.latitude === null || l.latitude === undefined) ? 'Não capturada' : null,
+      dispositivo: l.dispositivo || '',
+      criadoEm: l.criado_em, atualizadoEm: l.atualizado_em,
+      versao: l.versao || 1,
+      status: 'sincronizado', erroMsg: '', tentativas: 0,
+      sincronizadoEm: agora(),
+      fotosRemotas: l.fotos || [],
+      qtdFotosRemotas: l.qtd_fotos || (l.fotos || []).length,
+      excluido: l.excluido ? 1 : 0,
+      excluidoEm: l.excluido_em || null,
+      motivoExclusao: l.motivo_exclusao || ''
+    });
+    await db.inspecoes.put(reg);
+    return true;
+  }
+
+  /** Foto baixada da base para uma inspeção recebida. */
+  async function salvarFotoRecebida(inspecaoId, meta, blob) {
+    let largura = 0, altura = 0;
+    try {
+      const bmp = await createImageBitmap(blob);
+      largura = bmp.width; altura = bmp.height;
+      if (bmp.close) bmp.close();
+    } catch (e) { /* dimensões são opcionais */ }
+    await db.fotos.put({
+      id: 'r-' + inspecaoId.slice(0, 8) + '-' + (meta.ordem || 0),
+      inspecaoId: inspecaoId,
+      blob: blob,
+      legenda: meta.legenda || '',
+      nome: String(meta.caminho || '').split('/').pop(),
+      largura: largura, altura: altura,
+      bytes: blob.size,
+      ordem: meta.ordem || 0,
+      criadoEm: agora(),
+      enviada: 1,
+      caminhoRemoto: meta.caminho
+    });
+  }
+
+  async function marcarFotoRemota(fotoId, caminho) {
+    await db.fotos.update(fotoId, { caminhoRemoto: caminho, enviada: 1 });
   }
 
   /** Exclusão LÓGICA, com motivo e trilha de auditoria. */
@@ -480,13 +567,10 @@ const DB = (function () {
     const u = usuarioAtual();
     let lista = await db.inspecoes.toArray();
 
-    // Segregação por usuário (o administrador só tem no aparelho os
-    // próprios registros; os demais chegam pelo Supabase/Power BI).
-    if (!filtros.todosUsuarios) {
-      lista = lista.filter(r => r.usuarioId === u);
-    } else {
-      lista = lista.filter(r => r.usuarioId !== 'legado-v1');
-    }
+    // Segregação por usuário: cada um vê o que é dele; o administrador
+    // e quem tem visão "todas" veem também as inspeções recebidas da base
+    // central (o servidor só entrega o que a pessoa tem direito de ver).
+    lista = lista.filter(r => r.usuarioId !== 'legado-v1' && podeVer(r, u));
 
     // Segregação por lote do perfil
     const permitidos = (window.AUTH && AUTH.lotes) ? AUTH.lotes() : null;
@@ -572,7 +656,12 @@ const DB = (function () {
   async function removerFoto(fotoId) { await db.fotos.delete(fotoId); }
   async function atualizarLegenda(fotoId, legenda) { await db.fotos.update(fotoId, { legenda: legenda }); }
   async function removerFotosDaInspecao(id) { await db.fotos.where('inspecaoId').equals(id).delete(); }
-  async function contarFotos(id) { return db.fotos.where('inspecaoId').equals(id).count(); }
+  async function contarFotos(id) {
+    const n = await db.fotos.where('inspecaoId').equals(id).count();
+    if (n) return n;
+    const r = await db.inspecoes.get(id);           // recebida da base: fotos ainda não baixadas
+    return (r && r.qtdFotosRemotas) || 0;
+  }
 
   // ---------------------------------------------------------------
   // Fila de sincronização (por usuário)
@@ -597,9 +686,11 @@ const DB = (function () {
     };
   }
 
-  async function marcarStatus(id, status, mensagem, remotoId) {
+  async function marcarStatus(id, status, mensagem, remotoId, atualizadoEmEnviado) {
     const reg = await db.inspecoes.get(id);
     if (!reg) return;
+    // Editado enquanto subia: continua pendente para subir a versão nova.
+    if (status === 'sincronizado' && atualizadoEmEnviado && reg.atualizadoEm !== atualizadoEmEnviado) return;
     reg.status = status;
     reg.erroMsg = mensagem || '';
     if (remotoId) reg.remotoId = remotoId;
@@ -795,6 +886,11 @@ const DB = (function () {
     migrarRegistrosLocais: migrarRegistrosLocais,
     novaInspecao: novaInspecao,
     salvarInspecao: salvarInspecao,
+    salvarRecebida: salvarRecebida,
+    salvarFotoRecebida: salvarFotoRecebida,
+    marcarFotoRemota: marcarFotoRemota,
+    podeVer: podeVer,
+    ehMeu: ehMeu,
     obterInspecao: obterInspecao,
     listarInspecoes: listarInspecoes,
     excluirInspecao: excluirInspecao,

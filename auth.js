@@ -39,15 +39,12 @@ const AUTH = (function () {
   }
 
   /**
-   * MODO LOCAL — nesta versão o app funciona SEMPRE sem servidor.
-   * As contas são criadas e validadas no próprio aparelho, e cada
-   * inspetor é dono das próprias inspeções: emite os PDFs do dossiê e
-   * envia a planilha mensal. O código do modo servidor continua neste
-   * arquivo (e o backend em legado/), desativado por esta função —
-   * basta devolvê-la para "return !configurado();" caso a obra volte a
-   * querer base central.
+   * MODO LOCAL — enquanto o Supabase não estiver configurado em config.js,
+   * o app funciona sem servidor (contas e inspeções só no aparelho).
+   * Com o Supabase configurado, vale a base central: cadastro aprovado
+   * pelo administrador e inspeções reunidas num só lugar.
    */
-  function modoLocal() { return true; }
+  function modoLocal() { return !configurado(); }
 
   async function fetchTimeout(url, opcoes, ms) {
     const ctrl = new AbortController();
@@ -165,6 +162,12 @@ const AUTH = (function () {
 
   function ehAdmin() {
     return !!(perfil() && perfil().perfil === 'admin');
+  }
+
+  /** Administrador ou visão "todas": vê as inspeções de outros usuários. */
+  function veTodas() {
+    const p = perfil();
+    return ehAdmin() || !!(p && p.visao === 'todas');
   }
 
   function lotes() {
@@ -307,7 +310,7 @@ const AUTH = (function () {
       body: JSON.stringify({
         email: dados.email.trim().toLowerCase(),
         password: dados.senha,
-        data: { nome: dados.nome, funcao: dados.funcao }
+        data: { nome: dados.nome.trim(), funcao: dados.funcao, lotes: dados.lotes }
       })
     }, 30000);
     const j = await r.json().catch(() => ({}));
@@ -319,20 +322,10 @@ const AUTH = (function () {
       throw new Error('Falha no cadastro: ' + (j.msg || j.message || r.status));
     }
 
-    const idUsuario = (j.user && j.user.id) || (j.id) || null;
+    // A linha em "usuarios" é criada pelo próprio banco (gatilho), sempre
+    // como PENDENTE — exceto o administrador da base de acessos.
     const token = j.access_token || null;
-
-    // 2) Perfil. Se o projeto exigir confirmação de e-mail, não vem
-    // token: nesse caso a linha é criada no primeiro login.
-    if (token && idUsuario) {
-      await gravarLinhaUsuario(idUsuario, dados, token);
-    } else {
-      await DB.kvSet('cadastroPendente', {
-        email: dados.email.trim().toLowerCase(),
-        nome: dados.nome, funcao: dados.funcao, lotes: dados.lotes
-      });
-    }
-    return { ok: true, precisaConfirmarEmail: !token };
+    return { ok: true, precisaConfirmarEmail: !token, pendente: true };
   }
 
   async function gravarLinhaUsuario(idUsuario, dados, token) {
@@ -468,15 +461,6 @@ const AUTH = (function () {
     const idUsuario = j.user ? j.user.id : null;
     let linha = await carregarPerfil(idUsuario, j.access_token);
 
-    // Cadastro criado antes da confirmação de e-mail: grava agora.
-    if (!linha) {
-      const pend = await DB.kvGet('cadastroPendente', null);
-      if (pend && pend.email === email) {
-        await gravarLinhaUsuario(idUsuario, pend, j.access_token);
-        await DB.kvSet('cadastroPendente', null);
-        linha = await carregarPerfil(idUsuario, j.access_token);
-      }
-    }
     if (!linha) throw new Error('Cadastro não localizado. Fale com o administrador.');
 
     if (linha.status === 'pendente') {
@@ -675,33 +659,59 @@ const AUTH = (function () {
     try { return JSON.parse(t); } catch (e) { return true; }
   }
 
+  /** Base de acessos (planilha carregada no banco) — só o admin lê. */
+  async function listarAutorizacoes() {
+    const cab = await cabecalhosAutenticados();
+    const r = await fetchTimeout(base() + '/rest/v1/autorizacoes?select=*', { headers: cab }, 20000);
+    if (!r.ok) return [];
+    return r.json().catch(() => []);
+  }
+
+  /** Quantos cadastros aguardam liberação (0 se não for admin ou sem rede). */
+  async function contarPendentes() {
+    if (!ehAdmin() || !navigator.onLine) return 0;
+    try {
+      const cab = await cabecalhosAutenticados();
+      const r = await fetchTimeout(base() + '/rest/v1/' + CONFIG.supabase.tabelaUsuarios +
+        '?status=eq.pendente&select=id', { headers: cab }, 15000);
+      if (!r.ok) return 0;
+      return (await r.json()).length;
+    } catch (e) { return 0; }
+  }
+
   /* No modo local a administração age sobre as contas do aparelho. */
   const adminLocal = {
     listar: () => DB.listarUsuariosLocais(),
-    aprovar: (id, lotes) => DB.atualizarUsuarioLocal(id, { status: 'ativo', lotes: lotes }),
+    aprovar: (id, lotes, visao) => DB.atualizarUsuarioLocal(id, Object.assign({ status: 'ativo', lotes: lotes }, visao ? { visao: visao } : {})),
     recusar: (id) => DB.atualizarUsuarioLocal(id, { status: 'recusado' }),
     desativar: (id) => DB.atualizarUsuarioLocal(id, { status: 'inativo' }),
     reativar: (id) => DB.atualizarUsuarioLocal(id, { status: 'ativo' }),
     definirLotes: (id, lotes) => DB.atualizarUsuarioLocal(id, { lotes: lotes }),
     promover: (id) => DB.atualizarUsuarioLocal(id, { perfil: 'admin' }),
-    rebaixar: (id) => DB.atualizarUsuarioLocal(id, { perfil: 'inspetor' })
+    rebaixar: (id) => DB.atualizarUsuarioLocal(id, { perfil: 'inspetor' }),
+    definirAcesso: (id, lotes, visao) => DB.atualizarUsuarioLocal(id, { lotes: lotes, visao: visao }),
+    baseDeAcessos: async () => [],
+    contarPendentes: async () => 0
   };
 
   const adminServidor = {
     listar: listarUsuarios,
-    aprovar: (id, lotes) => atualizarUsuario(id, { status: 'ativo', lotes: lotes }),
+    aprovar: (id, lotes, visao) => atualizarUsuario(id, Object.assign({ status: 'ativo', lotes: lotes }, visao ? { visao: visao } : {})),
     recusar: (id) => atualizarUsuario(id, { status: 'recusado' }),
     desativar: (id) => atualizarUsuario(id, { status: 'inativo' }),
     reativar: (id) => atualizarUsuario(id, { status: 'ativo' }),
     definirLotes: (id, lotes) => atualizarUsuario(id, { lotes: lotes }),
     promover: (id) => atualizarUsuario(id, { perfil: 'admin' }),
-    rebaixar: (id) => atualizarUsuario(id, { perfil: 'inspetor' })
+    rebaixar: (id) => atualizarUsuario(id, { perfil: 'inspetor' }),
+    definirAcesso: (id, lotes, visao) => atualizarUsuario(id, { lotes: lotes, visao: visao }),
+    baseDeAcessos: listarAutorizacoes,
+    contarPendentes: contarPendentes
   };
 
   // Fachada: a tela chama AUTH.admin.* sem saber em qual modo está.
   const admin = {};
-  ['listar', 'aprovar', 'recusar', 'desativar', 'reativar',
-   'definirLotes', 'promover', 'rebaixar'].forEach(function (acao) {
+  ['listar', 'aprovar', 'recusar', 'desativar', 'reativar', 'definirLotes', 'promover',
+   'rebaixar', 'definirAcesso', 'baseDeAcessos', 'contarPendentes'].forEach(function (acao) {
     admin[acao] = function () {
       const alvo = modoLocal() ? adminLocal : adminServidor;
       return alvo[acao].apply(null, arguments);
@@ -742,6 +752,7 @@ const AUTH = (function () {
     usuarioId: usuarioId,
     perfil: perfil,
     ehAdmin: ehAdmin,
+    veTodas: veTodas,
     lotes: lotes,
 
     obterToken: obterToken,

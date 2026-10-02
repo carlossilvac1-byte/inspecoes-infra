@@ -4,8 +4,25 @@ Aplicativo web instalável (PWA) para registro de inspeções de canteiros,
 alojamentos, cozinhas/refeitórios e áreas de vivência — **EDP TRANSMISSÃO
 CONSTRUÇÃO** — com funcionamento integral **sem internet**.
 
-Versão 3.6.0 — sem servidor. Cada inspetor guarda as próprias inspeções no
-aparelho, emite os PDFs para o dossiê e envia a planilha mensal.
+Versão 4.0.0 — **base central com controle de acesso** (Supabase).
+
+| Perfil | O que acontece |
+|---|---|
+| Administrador (base de acessos) | Entra direto, vê **todas** as inspeções em tempo real e é o **único** que libera acessos |
+| Visão "todas" (Gestor, Diretor) | Vê todas as inspeções dos seus lotes; não libera acessos |
+| Visão "próprias" (Consultores) | Vê somente as inspeções que ele mesmo fez |
+| Qualquer novo cadastro | Nasce **bloqueado** e aparece em **Liberações de acesso** para o administrador |
+
+Quem decide o que cada um vê é o **banco** (regras RLS em `banco/supabase.sql`),
+não o aparelho. Sem internet o app continua funcionando; a fila de envio
+sobe sozinha quando a conexão volta.
+
+Ativação passo a passo: `banco/ATIVAR-BASE-CENTRAL.md`.
+Enquanto `config.js` estiver com os textos de exemplo, o app segue no
+modo local (sem base central), exatamente como a v3.6.0.
+
+> **Não publique `banco/02-base-de-acessos.sql` no GitHub** — ele contém os
+> e-mails da equipe. Ele é usado só uma vez, colado no SQL Editor do Supabase.
 
 ## Comece por aqui (2 minutos)
 

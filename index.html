@@ -274,6 +274,14 @@
         <span>Iniciar inspeção</span>
       </button>
     </div>
+
+    <div class="cartao cartao-vidro bv-liberacoes" id="bv-liberacoes" hidden>
+      <div class="bv-lib-texto">
+        <b id="bv-lib-qtd">0</b>
+        <span id="bv-lib-rotulo">cadastro(s) aguardando sua liberação</span>
+      </div>
+      <button type="button" class="btn btn-secundario btn-bloco" id="btn-bv-liberacoes">Abrir liberações de acesso</button>
+    </div>
   </section>
 
   <!-- ===================================================================
@@ -549,7 +557,7 @@
   <section class="tela" id="tela-sync" hidden>
     <div class="cartao">
       <h1>Exportar</h1>
-      <p class="apoio">As inspeções ficam guardadas neste aparelho. Use a planilha
+      <p class="apoio" id="apoio-exportar">As inspeções ficam guardadas neste aparelho. Use a planilha
          mensal para enviar o consolidado e os PDFs para montar o dossiê.</p>
 
       <div class="painel-numeros">
@@ -557,6 +565,20 @@
         <div class="num num-erro"><b id="n-nc">0</b><span>Com não conformidade</span></div>
         <div class="num"><b id="n-fotos">0</b><span>Fotos</span></div>
       </div>
+    </div>
+
+    <div class="cartao" id="cartao-base" hidden>
+      <h2>Base central</h2>
+      <p class="apoio pequena">Com internet, cada inspeção salva sobe sozinha para a base
+         central e o app recebe as novas a cada 30 segundos. Sem internet, ela fica na fila
+         e é enviada assim que a conexão voltar.</p>
+      <div class="painel-numeros">
+        <div class="num num-pendente"><b id="n-fila">0</b><span>Na fila de envio</span></div>
+        <div class="num num-erro"><b id="n-erros">0</b><span>Com erro</span></div>
+        <div class="num num-ok"><b id="n-ultima">—</b><span>Última sincronização</span></div>
+      </div>
+      <p class="apoio pequena" id="txt-sync-erro" hidden></p>
+      <button type="button" class="btn btn-primario btn-bloco" id="btn-sincronizar">Sincronizar agora</button>
     </div>
 
     <div class="cartao">
@@ -605,15 +627,22 @@
   <section class="tela" id="tela-admin" hidden>
     <div class="cartao">
       <div class="linha-titulo">
-        <h1>Administração</h1>
+        <h1>Liberações de acesso</h1>
         <button type="button" class="btn btn-secundario" id="btn-recarregar-usuarios">Atualizar</button>
       </div>
-      <p class="apoio" id="apoio-admin">Aprovação de cadastros, lotes de atuação e
-         situação dos aparelhos.</p>
+      <p class="apoio" id="apoio-admin">Todo novo cadastro chega aqui bloqueado. Só o
+         administrador libera o acesso, define os lotes e o que cada colaborador enxerga:
+         <b>somente as próprias inspeções</b> ou <b>todas as inspeções dos seus lotes</b>.</p>
       <div class="painel-numeros">
         <div class="num num-pendente"><b id="ad-pendentes">0</b><span>Pendentes</span></div>
         <div class="num num-ok"><b id="ad-ativos">0</b><span>Ativos</span></div>
         <div class="num"><b id="ad-aparelhos">0</b><span>Aparelhos ativos (7 dias)</span></div>
+      </div>
+      <div class="filtro-lib" role="tablist">
+        <button type="button" class="aba ativa" data-filtro-lib="pendente">Aguardando liberação</button>
+        <button type="button" class="aba" data-filtro-lib="ativo">Liberados</button>
+        <button type="button" class="aba" data-filtro-lib="bloqueado">Recusados / inativos</button>
+        <button type="button" class="aba" data-filtro-lib="todos">Todos</button>
       </div>
     </div>
     <div id="lista-usuarios" class="lista"></div>
@@ -673,9 +702,9 @@
     </div>
 
     <div class="cartao" id="cartao-admin-atalho" hidden>
-      <h2>Administração</h2>
-      <p class="apoio pequena">Aprovar cadastros, editar lotes e acompanhar os aparelhos.</p>
-      <button type="button" class="btn btn-primario btn-bloco" id="btn-abrir-admin">Abrir administração</button>
+      <h2>Liberações de acesso <span class="selo selo-nc" id="selo-pendentes-mais" hidden></span></h2>
+      <p class="apoio pequena">Liberar novos cadastros, definir lotes e visão de cada colaborador.</p>
+      <button type="button" class="btn btn-primario btn-bloco" id="btn-abrir-admin">Abrir liberações de acesso</button>
     </div>
 
     <div class="cartao">
@@ -788,6 +817,7 @@
 <script src="assets/logo-edp-base64.js"></script>
 <script src="db.js"></script>
 <script src="auth.js"></script>
+<script src="sync.js"></script>
 <script src="pdf.js"></script>
 <script src="painel.js"></script>
 <script src="app.js"></script>

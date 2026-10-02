@@ -17,7 +17,12 @@ const APP = (function () {
     detalheId: null,
     listaHistorico: [],
     promptInstalacao: null,
-    usuarios: []
+    usuarios: [],
+    baseAcessos: [],
+    filtroLib: 'pendente',
+    syncIniciado: false,
+    sincronizando: false,
+    ultimoResumo: null
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -258,9 +263,32 @@ const APP = (function () {
     if (!AUTH.autenticado()) { $('#txt-rede').textContent = '—'; return; }
     const lista = await DB.listarInspecoes({});
     const badge = $('#badge-rede');
-    badge.classList.add('online');
-    badge.classList.remove('offline', 'erro');
-    $('#txt-rede').textContent = lista.length === 1 ? '1 inspeção' : lista.length + ' inspeções';
+    badge.classList.remove('offline', 'erro', 'online');
+
+    if (SYNC.ativo()) {
+      // Base central: o selo mostra a situação da fila de envio.
+      const pend = await DB.listarPendentes();
+      const comErro = pend.filter(r => r.status === 'erro').length;
+      if (estado.sincronizando) {
+        badge.classList.add('online');
+        $('#txt-rede').textContent = 'Sincronizando…';
+      } else if (!navigator.onLine) {
+        badge.classList.add('offline');
+        $('#txt-rede').textContent = pend.length ? 'Offline • ' + pend.length + ' na fila' : 'Offline';
+      } else if (comErro) {
+        badge.classList.add('erro');
+        $('#txt-rede').textContent = comErro + ' com erro';
+      } else if (pend.length) {
+        badge.classList.add('offline');
+        $('#txt-rede').textContent = pend.length + ' na fila';
+      } else {
+        badge.classList.add('online');
+        $('#txt-rede').textContent = 'Sincronizado';
+      }
+    } else {
+      badge.classList.add('online');
+      $('#txt-rede').textContent = lista.length === 1 ? '1 inspeção' : lista.length + ' inspeções';
+    }
 
     if ($('#n-total')) {
       let fotos = 0;
@@ -318,9 +346,11 @@ const APP = (function () {
     $('#aviso-recuperar-local').hidden = !local;
     $('#apoio-cadastro-rede').hidden = local;
     $('#apoio-cadastro-aprovacao').hidden = local;
-    $('#apoio-admin').textContent = local
-      ? 'Contas criadas neste aparelho: lotes de atuação, perfil e situação. Não exige internet.'
-      : 'Aprovação de cadastros, lotes de atuação e situação dos aparelhos. Exige internet.';
+    $('#apoio-admin').innerHTML = local
+      ? 'Contas criadas neste aparelho: lotes de atuação, visão e situação. Não exige internet.'
+      : 'Todo novo cadastro chega aqui <b>bloqueado</b>. Só o administrador libera o acesso, ' +
+        'define os lotes e o que cada colaborador enxerga: <b>somente as próprias inspeções</b> ' +
+        'ou <b>todas as inspeções dos seus lotes</b>.';
   }
 
   async function fazerLogin() {
@@ -340,7 +370,8 @@ const APP = (function () {
     } catch (e) {
       const msg = String(e.message || e);
       if (msg === 'PENDENTE') {
-        aviso('Cadastro enviado. Aguarde a liberação do administrador.', 'alerta', 0);
+        aviso('Seu cadastro está aguardando a liberação do administrador. ' +
+              'Você será liberado assim que ele aprovar o acesso.', 'alerta', 0);
       } else {
         aviso(msg, 'erro', 10);
       }
@@ -479,6 +510,82 @@ const APP = (function () {
     await DB.solicitarPersistencia();
     await atualizarBadges();
     mostrarBoasVindas();
+    if (SYNC.ativo() && !estado.syncIniciado) {
+      estado.syncIniciado = true;
+      SYNC.iniciar();
+    }
+  }
+
+  /* ===================================================================
+   * SINCRONIZAÇÃO — reflexo na tela
+   * =================================================================== */
+  function aoMudarSync(evento, resumo) {
+    if (evento === 'inicio') { estado.sincronizando = true; atualizarBadges(); return; }
+    if (evento === 'rede') { atualizarBadges(); return; }
+    if (evento !== 'fim') return;
+    estado.sincronizando = false;
+    estado.ultimoResumo = resumo || null;
+    if (resumo && resumo.bloqueado) {
+      // Acesso suspenso/recusado pelo administrador durante o uso.
+      AUTH.sair().then(() => {
+        mostrarTela('tela-login');
+        aviso('Seu acesso foi suspenso pelo administrador.', 'erro', 0);
+      });
+      return;
+    }
+    if (resumo && resumo.recebidas) {
+      aviso(resumo.recebidas === 1 ? '1 inspeção atualizada da base central.'
+                                   : resumo.recebidas + ' inspeções atualizadas da base central.', 'sucesso', 4);
+      if (estado.tela === 'tela-historico') carregarHistorico();
+      if (estado.tela === 'tela-painel') PAINEL.montar();
+    }
+    if (resumo && resumo.enviados && estado.tela === 'tela-historico') carregarHistorico();
+    atualizarBadges();
+    if (estado.tela === 'tela-sync') atualizarTelaSync();
+    verificarLiberacoes();
+  }
+
+  /** Dispara um ciclo logo após gravar (sem travar a tela). */
+  function sincronizarEmSegundoPlano() {
+    if (SYNC.ativo()) setTimeout(() => SYNC.sincronizar(false), 300);
+  }
+
+  async function sincronizarAgora() {
+    if (!SYNC.ativo()) return;
+    if (!navigator.onLine) { aviso('Sem internet. Os registros continuam na fila do aparelho.', 'alerta', 6); return; }
+    carregando(true, 'Sincronizando com a base central…');
+    try {
+      const r = await SYNC.sincronizar(true);
+      if (r.offline) aviso('A base central não respondeu. Tente de novo em instantes.', 'alerta', 6);
+      else if (r.sessaoExpirada) aviso('Sessão expirada. Saia e entre novamente para sincronizar.', 'erro', 0);
+      else if (r.erro) aviso('Falha na sincronização: ' + r.erro, 'erro', 10);
+      else if (!r.pulado) aviso('Sincronizado: ' + (r.enviados || 0) + ' enviada(s), ' + (r.recebidas || 0) +
+                                ' recebida(s)' + (r.falhas ? ', ' + r.falhas + ' com erro' : '') + '.',
+                                r.falhas ? 'alerta' : 'sucesso', 6);
+    } finally {
+      carregando(false);
+      atualizarTelaSync();
+    }
+  }
+
+  /** Administrador: alerta de cadastros aguardando liberação. */
+  async function verificarLiberacoes() {
+    const caixa = $('#bv-liberacoes');
+    const selo = $('#selo-pendentes-mais');
+    if (!AUTH.autenticado() || !AUTH.ehAdmin()) { caixa.hidden = true; selo.hidden = true; return 0; }
+    const n = await AUTH.admin.contarPendentes();
+    caixa.hidden = !n;
+    selo.hidden = !n;
+    $('#bv-lib-qtd').textContent = n;
+    $('#bv-lib-rotulo').textContent = n === 1 ? 'cadastro aguardando sua liberação'
+                                              : 'cadastros aguardando sua liberação';
+    selo.textContent = n + (n === 1 ? ' pendente' : ' pendentes');
+    if (n && estado.pendentesAvisados !== n) {
+      estado.pendentesAvisados = n;
+      aviso(n === 1 ? 'Há 1 novo cadastro aguardando liberação de acesso.'
+                    : 'Há ' + n + ' novos cadastros aguardando liberação de acesso.', 'alerta', 8);
+    }
+    return n;
   }
 
   /** Tela de boas-vindas: primeira tela após o login (e ao abrir o app já logado). */
@@ -487,6 +594,7 @@ const APP = (function () {
     const primeiro = p && p.nome ? String(p.nome).trim().split(/\s+/)[0] : '';
     $('#bv-nome').textContent = primeiro ? ', ' + primeiro : '';
     mostrarTela('tela-boasvindas');
+    verificarLiberacoes();
   }
 
   async function sairDaConta() {
@@ -837,6 +945,7 @@ const APP = (function () {
   async function editarInspecao(id) {
     const reg = await DB.obterInspecao(id);
     if (!reg) { aviso('Registro não encontrado ou de outro usuário.', 'erro'); return; }
+    if (!DB.ehMeu(reg)) { aviso('Somente quem realizou a inspeção pode editá-la.', 'alerta', 6); return; }
     estado.registro = reg;
     estado.ehNovo = false;
     estado.salvo = false;
@@ -901,7 +1010,9 @@ const APP = (function () {
       estado.salvo = true;
       const nFotos = await DB.contarFotos(r.id);
       aviso('Inspeção salva no aparelho' + (nFotos ? ' com ' + nFotos + ' foto(s)' : '') +
-            '.', 'sucesso');
+            (SYNC.ativo() ? (navigator.onLine ? ' e enviada para a base central.' : '. Será enviada quando houver internet.') : '.'),
+            'sucesso');
+      sincronizarEmSegundoPlano();
       await atualizarBadges();
       await verificarArmazenamento(false);
       await novaInspecao();
@@ -1043,12 +1154,15 @@ const APP = (function () {
 
     for (const r of lista) {
       const qtd = await DB.contarFotos(r.id);
+      const meu = DB.ehMeu(r);
       const div = document.createElement('div');
       div.className = 'item' + (r.naoConformidade === 'Sim' ? ' com-nc' : '') + (r.excluido ? ' excluido' : '');
       div.innerHTML =
         '<div class="topo">' +
           '<span class="data">' + dataBR(r.dataInspecao) + ' • ' + escapar(r.lote) + '</span>' +
-          (r.excluido ? '<span class="selo selo-nc">EXCLUÍDO</span>' : '') +
+          (meu ? (SYNC.ativo() && r.status !== 'sincronizado'
+                  ? '<span class="selo selo-cinza">' + (r.status === 'erro' ? 'ERRO NO ENVIO' : 'NA FILA') + '</span>' : '')
+               : '<span class="selo selo-recebida">' + escapar(r.responsavel || 'Equipe') + '</span>') +
         '</div>' +
         '<div class="linha2"><b>' + escapar(DB.nomeCanteiro(r)) + '</b> — ' + escapar(DB.nomeEmpresa(r)) + '</div>' +
         '<div class="linha3">' + escapar(DB.itensInspecionados(r).join(', ')) +
@@ -1061,9 +1175,9 @@ const APP = (function () {
         '</div>' +
         '<div class="acoes-item">' +
           '<button type="button" class="btn btn-secundario" data-acao="ver">Ver</button>' +
-          '<button type="button" class="btn btn-neutro" data-acao="editar">Editar</button>' +
+          (meu ? '<button type="button" class="btn btn-neutro" data-acao="editar">Editar</button>' : '') +
           '<button type="button" class="btn btn-neutro" data-acao="pdf">PDF</button>' +
-          (r.excluido
+          (!meu ? '' : r.excluido
             ? '<button type="button" class="btn btn-neutro" data-acao="restaurar">Restaurar</button>'
             : '<button type="button" class="btn btn-neutro" data-acao="excluir">Excluir</button>') +
         '</div>';
@@ -1080,6 +1194,7 @@ const APP = (function () {
           const p = AUTH.perfil();
           await DB.restaurarInspecao(r.id, p ? p.nome : '');
           aviso('Registro restaurado.', 'sucesso', 3);
+          sincronizarEmSegundoPlano();
           carregarHistorico();
         }
       });
@@ -1088,6 +1203,8 @@ const APP = (function () {
   }
 
   async function excluirRegistro(id) {
+    const alvo = await DB.obterInspecao(id);
+    if (!alvo || !DB.ehMeu(alvo)) { aviso('Somente quem realizou a inspeção pode excluí-la.', 'alerta', 6); return; }
     const c = await confirmar('Excluir inspeção?',
       'A exclusão é lógica: o registro sai da lista, mas continua guardado com a trilha ' +
       'de auditoria e sai no backup.', true, 'Excluir');
@@ -1095,6 +1212,7 @@ const APP = (function () {
     const p = AUTH.perfil();
     await DB.excluirInspecao(id, c.valor, p ? p.nome : '');
     aviso('Registro excluído (exclusão lógica registrada).', 'sucesso', 4);
+    sincronizarEmSegundoPlano();
     await atualizarBadges();
     if (estado.tela === 'tela-detalhe') mostrarTela('tela-historico');
     else carregarHistorico();
@@ -1107,7 +1225,11 @@ const APP = (function () {
     const r = await DB.obterInspecao(id);
     if (!r) { aviso('Registro não encontrado.', 'erro'); return; }
     estado.detalheId = id;
+    await garantirFotos(r);
     const fotos = await DB.listarFotos(id);
+    const meu = DB.ehMeu(r);
+    $('#btn-editar-detalhe').hidden = !meu;
+    $('#btn-excluir-detalhe').hidden = !meu || !!r.excluido;
     const auditoria = await DB.listarAuditoria(id);
 
     let html = '<h1>Inspeção de ' + dataBR(r.dataInspecao) + '</h1>';
@@ -1130,6 +1252,8 @@ const APP = (function () {
     linhas.push(['Criado em', dataBR(r.criadoEm)]);
     linhas.push(['Última edição', dataBR(r.atualizadoEm) + ' (v' + (r.versao || 1) + ')']);
     linhas.push(['Dispositivo', r.dispositivo]);
+    if (SYNC.ativo()) linhas.push(['Base central', r.status === 'sincronizado' ? 'Sincronizado'
+      : r.status === 'erro' ? 'Erro no envio — ' + (r.erroMsg || '') : 'Na fila de envio']);
     linhas.push(['ID do registro', r.id]);
     if (r.excluido) linhas.push(['Excluído em', dataBR(r.excluidoEm) +
       (r.motivoExclusao ? ' — ' + r.motivoExclusao : '')]);
@@ -1188,6 +1312,8 @@ const APP = (function () {
   async function gerarPdfIndividual(id) {
     carregando(true, 'Montando o PDF…');
     try {
+      const reg = await DB.obterInspecao(id);
+      if (reg) await garantirFotos(reg);
       const r = await PDFGEN.gerarIndividual(id);
       avisoEntrega(r);
     } catch (e) {
@@ -1197,12 +1323,21 @@ const APP = (function () {
     }
   }
 
+  /** Inspeção recebida da base: baixa as fotos que ainda não estão no aparelho. */
+  async function garantirFotos(reg) {
+    if (!SYNC.ativo() || !reg || !Array.isArray(reg.fotosRemotas) || !reg.fotosRemotas.length) return;
+    const temLocal = (await DB.listarFotos(reg.id)).length;
+    if (temLocal >= reg.fotosRemotas.length || !navigator.onLine) return;
+    try { await SYNC.baixarFotos(reg); } catch (e) { /* segue sem as fotos */ }
+  }
+
   async function gerarPdfConsolidado() {
     const f = filtrosAtuais();
     const lista = estado.listaHistorico.length ? estado.listaHistorico : await DB.listarInspecoes(f);
     if (!lista.length) { aviso('Nenhuma inspeção no filtro atual.', 'alerta'); return; }
     carregando(true, 'Montando o consolidado (' + lista.length + ' inspeções)…');
     try {
+      for (const reg of lista) await garantirFotos(reg);
       const r = await PDFGEN.gerarConsolidado(lista, descreverFiltros(f));
       avisoEntrega(r);
     } catch (e) {
@@ -1253,6 +1388,24 @@ const APP = (function () {
       : ('Nenhuma inspeção no ' + p.rotulo + '.');
 
     verificarArmazenamento(true);
+
+    const base = SYNC.ativo();
+    $('#cartao-base').hidden = !base;
+    $('#apoio-exportar').textContent = base
+      ? 'As inspeções ficam no aparelho e na base central. Use a planilha mensal para o consolidado e os PDFs para o dossiê.'
+      : 'As inspeções ficam guardadas neste aparelho. Use a planilha mensal para enviar o consolidado e os PDFs para montar o dossiê.';
+    if (base) {
+      const pend = await DB.listarPendentes();
+      const erros = pend.filter(r => r.status === 'erro');
+      $('#n-fila').textContent = pend.length - erros.length;
+      $('#n-erros').textContent = erros.length;
+      const ult = await SYNC.ultimaSincronizacao();
+      $('#n-ultima').textContent = ult ? new Date(ult).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—';
+      const txt = $('#txt-sync-erro');
+      const msg = erros.length ? erros[0].erroMsg : (estado.ultimoResumo && estado.ultimoResumo.erro) || '';
+      txt.hidden = !msg;
+      txt.textContent = msg ? 'Último erro: ' + msg : '';
+    }
   }
 
   /** Planilha do período, em CSV pronto para o Excel. */
@@ -1283,6 +1436,7 @@ const APP = (function () {
     try {
       const desc = p.de ? ('Período: ' + dataBR(p.de) + ' a ' + dataBR(p.ate))
                         : 'Histórico completo';
+      for (const reg of lista) await garantirFotos(reg);
       const r = await PDFGEN.gerarConsolidado(lista, desc);
       avisoEntrega(r);
     } catch (e) {
@@ -1317,8 +1471,12 @@ const APP = (function () {
     $('#conta-email').textContent = p ? p.email : '—';
     $('#conta-funcao').textContent = p ? p.funcao : '—';
     $('#conta-lotes').textContent = est.lotes.length ? est.lotes.join(', ') : 'nenhum';
-    $('#conta-perfil').textContent = est.ehAdmin ? 'Administrador' : 'Inspetor';
-    $('#conta-sessao').textContent = 'conta deste aparelho — não expira';
+    $('#conta-perfil').textContent = est.ehAdmin ? 'Administrador (vê todas as inspeções e libera acessos)'
+      : AUTH.veTodas() ? 'Visualiza todas as inspeções dos seus lotes'
+      : 'Visualiza somente as próprias inspeções';
+    $('#conta-sessao').textContent = AUTH.modoLocal() ? 'conta deste aparelho — não expira'
+      : 'vale ' + CONFIG.auth.diasSessaoOffline + ' dias sem internet';
+    verificarLiberacoes();
     $('#cartao-admin-atalho').hidden = !est.ehAdmin;
     $('#txt-sobre').textContent = CONFIG.app.nome + ' • versão ' + CONFIG.app.versao;
   }
@@ -1488,19 +1646,30 @@ const APP = (function () {
    * ADMINISTRAÇÃO
    * =================================================================== */
   async function carregarUsuarios() {
-    if (!AUTH.ehAdmin()) { mostrarTela('tela-mais'); return; }
+    // Somente o administrador abre esta tela (o banco confirma pela RLS).
+    if (!AUTH.ehAdmin()) {
+      aviso('Área restrita ao administrador.', 'erro', 5);
+      mostrarTela('tela-boasvindas');
+      return;
+    }
     const cont = $('#lista-usuarios');
     cont.innerHTML = '<div class="vazio">Carregando…</div>';
     try {
-      const lista = await AUTH.admin.listar();
+      const [lista, base] = await Promise.all([AUTH.admin.listar(), AUTH.admin.baseDeAcessos()]);
       estado.usuarios = lista;
+      estado.baseAcessos = Array.isArray(base) ? base : [];
       desenharUsuarios(lista);
+      verificarLiberacoes();
     } catch (e) {
       cont.innerHTML = '<div class="vazio">Não foi possível carregar a lista.<br>' +
                        escapar(e.message || e) +
                        (AUTH.modoLocal() ? '' : '<br><small>Esta tela precisa de internet.</small>') +
                        '</div>';
     }
+  }
+
+  function grupoStatus(st) {
+    return st === 'pendente' ? 'pendente' : st === 'ativo' ? 'ativo' : 'bloqueado';
   }
 
   function desenharUsuarios(lista) {
@@ -1515,98 +1684,121 @@ const APP = (function () {
     $('#ad-ativos').textContent = ativos;
     $('#ad-aparelhos').textContent = aparelhos;
 
-    if (!lista.length) {
-      cont.innerHTML = '<div class="vazio">Nenhum usuário cadastrado.</div>';
+    $$('[data-filtro-lib]').forEach(b => b.classList.toggle('ativa', b.dataset.filtroLib === estado.filtroLib));
+    const filtrada = estado.filtroLib === 'todos' ? lista
+      : lista.filter(u => grupoStatus(u.status) === estado.filtroLib);
+
+    if (!filtrada.length) {
+      cont.innerHTML = '<div class="vazio">' + (estado.filtroLib === 'pendente'
+        ? 'Nenhum cadastro aguardando liberação.' : 'Nenhum usuário nesta situação.') + '</div>';
       return;
     }
 
-    // Pendentes primeiro
-    const ordenada = lista.slice().sort((a, b) => {
+    const ordenada = filtrada.slice().sort((a, b) => {
       const peso = s => (s === 'pendente' ? 0 : s === 'ativo' ? 1 : 2);
       return peso(a.status) - peso(b.status) ||
              String(a.nome).localeCompare(String(b.nome), 'pt-BR');
     });
 
+    const eu = AUTH.usuarioId();
+
     ordenada.forEach(u => {
       const div = document.createElement('div');
-      div.className = 'item usuario-item';
+      div.className = 'item usuario-item' + (u.status === 'pendente' ? ' pendente' : '');
       const seloStatus = u.status === 'ativo' ? 'selo-ok'
                        : u.status === 'pendente' ? 'selo-cinza' : 'selo-nc';
+      const rotStatus = { ativo: 'LIBERADO', pendente: 'AGUARDANDO', recusado: 'RECUSADO', inativo: 'INATIVO' }[u.status] || String(u.status).toUpperCase();
+      const ehEu = u.id === eu;
+      const ehAdm = u.perfil === 'admin';
+
+      // Base de acessos (planilha): sugere lotes e visão na liberação.
+      const ref = estado.baseAcessos.find(b => String(b.email).toLowerCase() === String(u.email).toLowerCase());
+      const lotesPadrao = u.status === 'pendente' && ref && (ref.lotes || []).length ? ref.lotes : (u.lotes || []);
+      const visaoPadrao = u.status === 'pendente' && ref ? (ref.visao || 'proprias') : (u.visao || 'proprias');
+
+      let quadroBase = '';
+      if (u.status === 'pendente') {
+        quadroBase = ref
+          ? '<div class="lib-base">Consta na base de acessos como <b>' + escapar(ref.funcao || '—') + '</b> • lotes ' +
+            escapar((ref.lotes || []).join(', ') || '—') + ' • ' +
+            (ref.visao === 'todas' ? 'vê todas as inspeções' : 'vê só as próprias') + '. Já pré-preenchido abaixo.</div>'
+          : '<div class="lib-base sem-base">Este e-mail <b>não consta</b> na base de acessos. Confira com quem é antes de liberar.</div>';
+      }
 
       div.innerHTML =
         '<div class="topo">' +
           '<div><span class="data">' + escapar(u.nome) + '</span>' +
-          (u.perfil === 'admin' ? ' <span class="selo selo-ok">ADMIN</span>' : '') +
+          (ehAdm ? ' <span class="selo selo-ok">ADMIN</span>' : '') +
           '<div class="email">' + escapar(u.email) + '</div></div>' +
-          '<span class="selo ' + seloStatus + '">' + escapar(u.status.toUpperCase()) + '</span>' +
+          '<span class="selo ' + seloStatus + '">' + escapar(rotStatus) + '</span>' +
         '</div>' +
         '<div class="linha3">' + escapar(u.funcao || '—') +
-          ' • último acesso: ' + (u.ultimo_acesso ? dataBR(u.ultimo_acesso) : 'nunca') +
-          ' • última sincronização: ' + (u.ultimo_sync ? dataBR(u.ultimo_sync) : 'nunca') + '</div>' +
-        '<div class="lotes-chips">' +
-          ((u.lotes || []).length
-            ? u.lotes.map(l => '<span class="lote-chip">' + escapar(l) + '</span>').join('')
-            : '<span class="apoio pequena">sem lote vinculado</span>') +
-        '</div>' +
-        '<details style="margin-top:10px"><summary>Editar lotes</summary>' +
-          '<div class="lista-check" data-lotes="' + escapar(u.id) + '"></div>' +
-          '<button type="button" class="btn btn-secundario" data-acao="salvar-lotes">Salvar lotes</button>' +
-        '</details>' +
+          ' • cadastro: ' + (u.criado_em ? dataBR(u.criado_em) : '—') +
+          ' • último acesso: ' + (u.ultimo_acesso ? dataBR(u.ultimo_acesso) : 'nunca') + '</div>' +
+        quadroBase +
+        (ehAdm
+          ? '<div class="linha3">Administrador: vê todas as inspeções de todos os lotes e libera acessos.</div>'
+          : '<div class="lib-grade">' +
+              '<div><div class="rotulo">Lotes liberados</div><div class="lista-check" data-lotes></div></div>' +
+              '<label><div class="rotulo">O que pode visualizar</div>' +
+                '<select data-visao>' +
+                  '<option value="proprias"' + (visaoPadrao !== 'todas' ? ' selected' : '') + '>Somente as próprias inspeções</option>' +
+                  '<option value="todas"' + (visaoPadrao === 'todas' ? ' selected' : '') + '>Todas as inspeções dos seus lotes</option>' +
+                '</select></label>' +
+            '</div>') +
         '<div class="acoes-item">' +
           (u.status === 'pendente'
-            ? '<button type="button" class="btn btn-primario" data-acao="aprovar">Aprovar</button>' +
+            ? '<button type="button" class="btn btn-primario" data-acao="aprovar">Liberar acesso</button>' +
               '<button type="button" class="btn btn-neutro" data-acao="recusar">Recusar</button>'
             : '') +
-          (u.status === 'ativo'
-            ? '<button type="button" class="btn btn-neutro" data-acao="desativar">Desativar</button>'
+          (u.status === 'ativo' && !ehAdm
+            ? '<button type="button" class="btn btn-secundario" data-acao="salvar-acesso">Salvar alterações</button>' +
+              '<button type="button" class="btn btn-neutro" data-acao="desativar">Bloquear acesso</button>'
             : '') +
-          (u.status === 'inativo' || u.status === 'recusado'
-            ? '<button type="button" class="btn btn-primario" data-acao="reativar">Reativar</button>'
+          ((u.status === 'inativo' || u.status === 'recusado') && !ehEu
+            ? '<button type="button" class="btn btn-primario" data-acao="reativar">Liberar novamente</button>'
             : '') +
-          (u.perfil !== 'admin'
-            ? '<button type="button" class="btn btn-neutro" data-acao="promover">Tornar admin</button>'
-            : '<button type="button" class="btn btn-neutro" data-acao="rebaixar">Remover admin</button>') +
         '</div>';
 
-      // Caixas de lote deste usuário
       const cxLotes = div.querySelector('[data-lotes]');
-      CONFIG.listarLotes().forEach(l => {
-        const lab = document.createElement('label');
-        const marcado = (u.lotes || []).indexOf(l) !== -1;
-        lab.innerHTML = '<input type="checkbox" value="' + l + '"' + (marcado ? ' checked' : '') +
-                        '><span>' + CONFIG.rotuloLote(l) + '</span>';
-        if (marcado) lab.classList.add('marcado');
-        lab.querySelector('input').addEventListener('change', (e) => {
-          lab.classList.toggle('marcado', e.target.checked);
+      if (cxLotes) {
+        CONFIG.listarLotes().forEach(l => {
+          const lab = document.createElement('label');
+          const marcado = lotesPadrao.indexOf(l) !== -1;
+          lab.innerHTML = '<input type="checkbox" value="' + l + '"' + (marcado ? ' checked' : '') +
+                          '><span>' + CONFIG.rotuloLote(l) + '</span>';
+          if (marcado) lab.classList.add('marcado');
+          lab.querySelector('input').addEventListener('change', (e) => {
+            lab.classList.toggle('marcado', e.target.checked);
+          });
+          cxLotes.appendChild(lab);
         });
-        cxLotes.appendChild(lab);
-      });
+      }
 
       div.addEventListener('click', async (ev) => {
         const acao = ev.target && ev.target.dataset ? ev.target.dataset.acao : null;
         if (!acao) return;
         ev.stopPropagation();
-        const lotesEscolhidos = Array.prototype.slice
-          .call(cxLotes.querySelectorAll('input:checked')).map(i => i.value);
-        await acaoAdmin(acao, u, lotesEscolhidos);
+        const lotes = cxLotes ? Array.prototype.slice.call(cxLotes.querySelectorAll('input:checked')).map(i => i.value) : [];
+        const sel = div.querySelector('[data-visao]');
+        await acaoAdmin(acao, u, lotes, sel ? sel.value : 'proprias');
       });
 
       cont.appendChild(div);
     });
   }
 
-  async function acaoAdmin(acao, u, lotesEscolhidos) {
+  async function acaoAdmin(acao, u, lotes, visao) {
+    const descVisao = visao === 'todas' ? 'todas as inspeções dos lotes' : 'somente as próprias inspeções';
     const rotulos = {
-      aprovar: 'Aprovar o cadastro de ' + u.nome + '?',
-      recusar: 'Recusar o cadastro de ' + u.nome + '?',
-      desativar: 'Desativar ' + u.nome + '? A pessoa perde o acesso imediatamente.',
-      reativar: 'Reativar o acesso de ' + u.nome + '?',
-      promover: 'Tornar ' + u.nome + ' administrador? Passa a ver todos os lotes e usuários.',
-      rebaixar: 'Remover o perfil de administrador de ' + u.nome + '?',
-      'salvar-lotes': 'Salvar os lotes de ' + u.nome + '?'
+      aprovar: 'Liberar o acesso de ' + u.nome + ' aos lotes ' + lotes.join(', ') + ', visualizando ' + descVisao + '?',
+      recusar: 'Recusar o cadastro de ' + u.nome + '? A pessoa não conseguirá entrar no app.',
+      desativar: 'Bloquear o acesso de ' + u.nome + '? Ele perde o acesso na próxima sincronização.',
+      reativar: 'Liberar novamente o acesso de ' + u.nome + '?',
+      'salvar-acesso': 'Salvar para ' + u.nome + ': lotes ' + lotes.join(', ') + ' e visão de ' + descVisao + '?'
     };
-    if (acao === 'aprovar' && !lotesEscolhidos.length) {
-      aviso('Marque ao menos um lote antes de aprovar (abra "Editar lotes").', 'alerta', 8);
+    if ((acao === 'aprovar' || acao === 'salvar-acesso') && u.perfil !== 'admin' && !lotes.length) {
+      aviso('Marque ao menos um lote antes de liberar.', 'alerta', 8);
       return;
     }
     const c = await confirmar('Confirmar', rotulos[acao] || 'Confirmar ação?', false, 'Confirmar');
@@ -1614,14 +1806,14 @@ const APP = (function () {
 
     carregando(true, 'Aplicando…');
     try {
-      if (acao === 'aprovar') await AUTH.admin.aprovar(u.id, lotesEscolhidos);
+      if (acao === 'aprovar') await AUTH.admin.aprovar(u.id, lotes, visao);
       if (acao === 'recusar') await AUTH.admin.recusar(u.id);
       if (acao === 'desativar') await AUTH.admin.desativar(u.id);
-      if (acao === 'reativar') await AUTH.admin.reativar(u.id);
-      if (acao === 'promover') await AUTH.admin.promover(u.id);
-      if (acao === 'rebaixar') await AUTH.admin.rebaixar(u.id);
-      if (acao === 'salvar-lotes') await AUTH.admin.definirLotes(u.id, lotesEscolhidos);
-      aviso('Alteração aplicada.', 'sucesso', 4);
+      if (acao === 'reativar') await AUTH.admin.aprovar(u.id, lotes, visao);
+      if (acao === 'salvar-acesso') await AUTH.admin.definirAcesso(u.id, lotes, visao);
+      aviso(acao === 'aprovar' ? 'Acesso liberado. ' + u.nome.split(' ')[0] + ' já pode entrar no app.'
+                               : 'Alteração aplicada.', 'sucesso', 5);
+      estado.pendentesAvisados = null;
       await carregarUsuarios();
     } catch (e) {
       aviso('Falha: ' + (e.message || e), 'erro', 10);
@@ -1656,6 +1848,12 @@ const APP = (function () {
     $('#btn-logo-padrao').addEventListener('click', voltarLogoPadrao);
     $('#btn-baixar-identidade').addEventListener('click', baixarIdentidade);
     $('#btn-recarregar-usuarios').addEventListener('click', carregarUsuarios);
+    $('#btn-bv-liberacoes').addEventListener('click', () => { estado.filtroLib = 'pendente'; mostrarTela('tela-admin'); });
+    $('#btn-sincronizar').addEventListener('click', sincronizarAgora);
+    $$('[data-filtro-lib]').forEach(b => b.addEventListener('click', () => {
+      estado.filtroLib = b.dataset.filtroLib;
+      desenharUsuarios(estado.usuarios || []);
+    }));
     $$('.btn-olho').forEach(b => b.addEventListener('click', () => alternarSenha(b)));
     $('#cad-funcao').addEventListener('change', () => {
       $('#campo-cad-funcao-outro').hidden = ($('#cad-funcao').value !== 'Outro');
@@ -1826,6 +2024,7 @@ const APP = (function () {
 
     await aplicarLogo();     // antes de qualquer tela aparecer
     await AUTH.iniciar();
+    SYNC.aoMudar(aoMudarSync);
 
     if (AUTH.autenticado()) {
       const est = AUTH.estado();
@@ -1842,6 +2041,8 @@ const APP = (function () {
     }
 
     setInterval(atualizarBadges, 15000);
+    // Administrador: confere novos cadastros a cada 60 s com o app aberto.
+    setInterval(() => { if (document.visibilityState === 'visible') verificarLiberacoes(); }, 60000);
   }
 
   return {
