@@ -188,6 +188,7 @@ const AUTH = (function () {
 
   function estado() {
     return {
+      sessaoLocalEncerrada: sessaoLocalEncerrada,
       autenticado: autenticado(),
       usuarioId: usuarioId(),
       perfil: perfil(),
@@ -516,6 +517,9 @@ const AUTH = (function () {
     if (!guardada || !guardada.email) {
       throw new Error('Nenhuma conta foi usada neste aparelho ainda. É preciso entrar uma vez com internet.');
     }
+    if (guardada.local || !guardada.refreshToken) {
+      throw new Error('Para usar a base central é preciso entrar uma vez com internet.');
+    }
     if (guardada.email !== email) {
       throw new Error('Sem internet, só é possível entrar com a última conta usada neste aparelho (' +
                       guardada.email + ').');
@@ -723,8 +727,20 @@ const AUTH = (function () {
   /* ===================================================================
    * INICIALIZAÇÃO
    * =================================================================== */
+  let sessaoLocalEncerrada = false;
+
   async function iniciar() {
     await carregarSessao();
+    // Com a base central ligada, uma sessão criada no modo local (sem
+    // servidor) não vale mais: ela não tem como enviar nada e ficaria
+    // "logada" sem sincronizar. Encerra e pede um login de verdade. Os
+    // registros do aparelho NÃO se perdem: no login online com o mesmo
+    // e-mail eles passam para a conta da base (migrarRegistrosLocais).
+    if (configurado() && sessao && !sessao.desconectado && (sessao.local || !sessao.refreshToken)) {
+      sessao.desconectado = true;
+      await DB.kvSet(CHAVE_SESSAO, sessao);
+      sessaoLocalEncerrada = true;
+    }
     // Revalida em segundo plano: a tela não espera pela rede.
     setTimeout(() => { revalidar(); }, 1500);
     window.addEventListener('online', () => { revalidar(); });

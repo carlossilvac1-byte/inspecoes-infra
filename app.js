@@ -2051,6 +2051,10 @@ const APP = (function () {
       const aba = $$('.aba[data-so]').filter(b => b.dataset.so === so)[0];
       if (aba) aba.click();
       mostrarTela('tela-login');
+      if (est.sessaoLocalEncerrada) {
+        aviso('O app agora usa a base central da EDP. Entre novamente com seu e-mail e senha — ' +
+              'as inspeções já salvas neste aparelho serão mantidas e enviadas. Se ainda não tem cadastro na base, toque em "Criar cadastro".', 'alerta', 0);
+      }
       if (veioDaConfirmacao) aviso('E-mail confirmado. Entre com seu e-mail e senha.', 'sucesso', 10);
     }
 

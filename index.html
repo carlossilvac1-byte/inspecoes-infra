@@ -540,80 +540,143 @@
   <!-- ===================================================================
        TELA — PAINEL DE INDICADORES
        ================================================================ -->
-  <section class="tela tela-dash" id="tela-painel" hidden>
-    <div class="cartao dash-topo">
-      <div class="dash-titulo">
-        <h1>Painel de indicadores</h1>
-        <p class="apoio pequena" id="pa-descricao"></p>
-      </div>
-      <div class="dash-controles">
-        <div class="periodo" id="periodo-botoes">
-          <button type="button" class="chip ativo" data-periodo="mes">Mês atual</button>
-          <button type="button" class="chip" data-periodo="3meses">Últimos 3 meses</button>
-          <button type="button" class="chip" data-periodo="ano">Ano</button>
-          <button type="button" class="chip" data-periodo="custom">Personalizado</button>
+  <section class="tela tela-bi" id="tela-painel" hidden>
+    <div class="bi">
+      <aside class="bi-lateral" aria-label="Seções do painel">
+       <div class="bi-lateral-fixo">
+        <nav class="bi-menu">
+          <button type="button" class="bi-menu-item ativo" data-bi-ir="bi-resumo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg>Resumo</button>
+          <button type="button" class="bi-menu-item" data-bi-ir="bi-analises">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-5M12 16V6M17 16v-8"/></svg>Análises</button>
+          <button type="button" class="bi-menu-item" data-bi-ir="bi-canteiros">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.3"/></svg>Canteiros</button>
+        </nav>
+        <div class="bi-usuario">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+          <div><b id="bi-usuario-nome">—</b><small id="bi-usuario-funcao"></small></div>
         </div>
-        <div class="dash-datas" id="periodo-custom" hidden>
-          <label class="campo"><span class="rotulo">De</span><input type="date" id="pa-de"></label>
-          <label class="campo"><span class="rotulo">Até</span><input type="date" id="pa-ate"></label>
-        </div>
-        <button type="button" class="btn btn-secundario" id="btn-pdf-painel">Exportar painel</button>
-      </div>
-    </div>
+       </div>
+      </aside>
 
-    <div class="cartoes-indicador" id="pa-cartoes"></div>
+      <div class="bi-principal">
+        <header class="bi-topo">
+          <div class="bi-titulo">
+            <h1>Inspeções de Campo</h1>
+            <span>EDP TRANSMISSÃO CONSTRUÇÃO</span>
+          </div>
+          <div class="bi-controles">
+            <div class="bi-suspenso">
+              <button type="button" class="bi-ctrl" id="bi-btn-periodo" aria-expanded="false" aria-haspopup="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>
+                <span class="bi-ctrl-txt"><small>Período • <span id="bi-periodo-nome">Mês atual</span></small><b id="bi-periodo-txt">—</b></span>
+                <svg class="bi-seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="bi-pop" id="bi-menu-periodo" hidden>
+                <button type="button" class="bi-op ativo" data-periodo="mes">Mês atual</button>
+                <button type="button" class="bi-op" data-periodo="3meses">Últimos 3 meses</button>
+                <button type="button" class="bi-op" data-periodo="12meses">Últimos 12 meses</button>
+                <button type="button" class="bi-op" data-periodo="ano">Ano corrente</button>
+                <button type="button" class="bi-op" data-periodo="custom">Personalizado…</button>
+                <div class="bi-datas" id="periodo-custom" hidden>
+                  <label class="campo"><span class="rotulo">De</span><input type="date" id="pa-de"></label>
+                  <label class="campo"><span class="rotulo">Até</span><input type="date" id="pa-ate"></label>
+                </div>
+              </div>
+            </div>
+            <div class="bi-suspenso">
+              <button type="button" class="bi-ctrl bi-ctrl-curto" id="bi-btn-filtros" aria-expanded="false" aria-haspopup="true">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6 7.5V19l-4 1.5v-8z"/></svg>
+                <b>Filtros</b><em class="bi-qtd" id="bi-filtros-qtd" hidden></em>
+              </button>
+              <div class="bi-pop bi-pop-direita" id="bi-menu-filtros" hidden>
+                <label class="campo"><span class="rotulo">Lote</span><select id="bi-f-lote"></select></label>
+                <label class="campo"><span class="rotulo">Empresa</span><select id="bi-f-empresa"></select></label>
+                <button type="button" class="btn btn-neutro btn-bloco" id="bi-f-limpar">Limpar filtros</button>
+              </div>
+            </div>
+            <div class="bi-ctrl bi-ctrl-info" title="Última sincronização com a base central">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+              <span class="bi-ctrl-txt"><small>Última atualização</small><b id="bi-atualizacao">—</b></span>
+            </div>
+            <button type="button" class="bi-ctrl bi-ctrl-curto bi-pdf" id="btn-pdf-painel" title="Exportar o painel em PDF">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10.5l4 4 4-4"/><path d="M5 15v3.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>
+              <b>PDF</b>
+            </button>
+          </div>
+        </header>
 
-    <div class="dash-grade">
-      <div class="cartao dash-bloco">
-        <h2>Inspeções por lote</h2>
-        <div id="pa-graf-lote" class="area-grafico"></div>
-      </div>
-      <div class="cartao dash-bloco">
-        <h2>Inspeções por empresa</h2>
-        <div id="pa-graf-empresa" class="area-grafico"></div>
-      </div>
-      <div class="cartao dash-bloco">
-        <h2>O que foi inspecionado</h2>
-        <div id="pa-graf-itens" class="area-grafico"></div>
-      </div>
+        <section class="bi-secao" id="bi-resumo">
+          <h2 class="bi-secao-tit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg>Visão Geral</h2>
+          <div class="bi-kpis" id="bi-kpis"></div>
+          <div class="bi-grade bi-grade-3">
+            <div class="bi-painel">
+              <h3>Inspeções por lote</h3>
+              <div id="pa-graf-lote"></div>
+              <div class="bi-legenda"><span><i class="ok"></i>Sem NC</span><span><i class="nc"></i>Com NC</span></div>
+            </div>
+            <div class="bi-painel">
+              <h3>Status das inspeções</h3>
+              <div id="pa-graf-status"></div>
+            </div>
+            <div class="bi-painel bi-painel-nc">
+              <h3>Canteiros com mais não conformidades</h3>
+              <div id="pa-graf-canteiros"></div>
+            </div>
+          </div>
+        </section>
 
-      <div class="cartao dash-bloco dash-largo">
-        <h2>Evolução mensal <small class="apoio">— últimos 12 meses</small></h2>
-        <div id="pa-graf-evolucao" class="area-grafico"></div>
-      </div>
-      <div class="cartao dash-bloco">
-        <h2>Canteiros com mais não conformidades</h2>
-        <div id="pa-graf-canteiros" class="area-grafico"></div>
-      </div>
+        <section class="bi-secao" id="bi-analises">
+          <h2 class="bi-secao-tit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-5M12 16V6M17 16v-8"/></svg>Análises</h2>
+          <div class="bi-grade bi-grade-analise">
+            <div class="bi-painel bi-largo">
+              <div class="bi-painel-cab"><h3>Evolução mensal <small>(últimos 12 meses)</small></h3>
+                <div class="bi-legenda"><span><i class="ok"></i>Sem NC</span><span><i class="nc"></i>Com NC</span></div></div>
+              <div id="pa-graf-evolucao"></div>
+            </div>
+            <div class="bi-painel">
+              <h3>Inspeções por empresa</h3>
+              <div id="pa-graf-empresa"></div>
+            </div>
+            <div class="bi-painel">
+              <h3>Distribuição por item inspecionado</h3>
+              <div id="pa-graf-itens"></div>
+            </div>
+          </div>
+          <div class="bi-grade bi-grade-2">
+            <div class="bi-painel">
+              <div class="bi-painel-cab"><h3>Checklist — perguntas com NÃO</h3><small class="bi-sub" id="pa-ck-sub"></small></div>
+              <div id="pa-graf-checklist"></div>
+            </div>
+            <div class="bi-painel" id="cartao-graf-responsavel" hidden>
+              <div class="bi-painel-cab"><h3>Inspeções por responsável</h3><small class="bi-sub">visível ao administrador</small></div>
+              <div id="pa-graf-responsavel"></div>
+            </div>
+          </div>
+        </section>
 
-      <div class="cartao dash-bloco dash-largo">
-        <h2>Cobertura de canteiros</h2>
-        <div class="rolagem-horizontal dash-tabela">
-          <table class="tabela" id="pa-cobertura">
-            <thead>
-              <tr>
-                <th>Canteiro</th><th>Lote</th><th>Última inspeção</th>
-                <th>No período</th><th>NCs</th><th>Situação</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <p class="apoio pequena dash-legenda">
-          <span class="ponto-legenda verde"></span> até 30 dias &nbsp;
-          <span class="ponto-legenda amarelo"></span> 31 a 60 dias &nbsp;
-          <span class="ponto-legenda vermelho"></span> mais de 60 dias ou nunca inspecionado
-        </p>
-      </div>
-      <div class="cartao dash-bloco">
-        <h2>Checklist — perguntas com NÃO</h2>
-        <div id="pa-graf-checklist" class="area-grafico"></div>
-      </div>
-
-      <div class="cartao dash-bloco" id="cartao-graf-responsavel" hidden>
-        <h2>Inspeções por responsável</h2>
-        <div id="pa-graf-responsavel" class="area-grafico"></div>
-        <p class="apoio pequena">Visível apenas para o perfil administrador.</p>
+        <section class="bi-secao" id="bi-canteiros">
+          <div class="bi-tabela-cab">
+            <h2 class="bi-secao-tit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.3"/></svg>Cobertura de canteiros</h2>
+            <div class="bi-paginacao">
+              <button type="button" id="bi-pag-ant" aria-label="Página anterior">‹</button>
+              <span id="bi-pag-txt">1/1</span>
+              <button type="button" id="bi-pag-prox" aria-label="Próxima página">›</button>
+            </div>
+          </div>
+          <div class="bi-abas" id="bi-abas-lote"></div>
+          <div class="bi-tabela-rolagem">
+            <table class="bi-tabela" id="bi-cobertura">
+              <thead><tr><th>Canteiro</th><th>Lote</th><th>Última inspeção</th><th class="bi-n">No período</th><th class="bi-n">NCs</th><th>Situação</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p class="bi-legenda-sem">
+            <span class="semaforo verde"><i></i>Em dia: até 30 dias</span>
+            <span class="semaforo amarelo"><i></i>Atenção: 31 a 60 dias</span>
+            <span class="semaforo vermelho"><i></i>Crítico: mais de 60 dias ou nunca inspecionado</span>
+          </p>
+        </section>
       </div>
     </div>
   </section>
