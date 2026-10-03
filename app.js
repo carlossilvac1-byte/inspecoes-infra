@@ -84,6 +84,7 @@ const APP = (function () {
     if (id === 'tela-painel') PAINEL.montar();
     if (id === 'tela-mais') montarTelaMais();
     if (id === 'tela-admin') carregarUsuarios();
+    if (id === 'tela-cronograma' && window.CRONO) CRONO.montar();
   }
 
   function hojeISO() {
@@ -540,6 +541,8 @@ const APP = (function () {
       if (estado.tela === 'tela-painel') PAINEL.montar();
     }
     if (resumo && resumo.enviados && estado.tela === 'tela-historico') carregarHistorico();
+    if (resumo && resumo.cronograma && estado.tela === 'tela-cronograma' &&
+        (resumo.cronograma.recebidos || resumo.cronograma.semTabela)) CRONO.montar();
     atualizarBadges();
     if (estado.tela === 'tela-sync') atualizarTelaSync();
     verificarLiberacoes();
@@ -1008,10 +1011,15 @@ const APP = (function () {
     try {
       await DB.salvarInspecao(r);
       estado.salvo = true;
+      const programada = window.CRONO ? await CRONO.aoSalvarInspecao(r) : null;
       const nFotos = await DB.contarFotos(r.id);
       aviso('Inspeção salva no aparelho' + (nFotos ? ' com ' + nFotos + ' foto(s)' : '') +
             (SYNC.ativo() ? (navigator.onLine ? ' e enviada para a base central.' : '. Será enviada quando houver internet.') : '.'),
             'sucesso');
+      if (programada) {
+        aviso('Cronograma: check automático em ' + programada.canteiro + ' (programado de ' +
+              dataBR(programada.inicio) + ' a ' + dataBR(programada.fim) + ').', 'sucesso', 6);
+      }
       sincronizarEmSegundoPlano();
       await atualizarBadges();
       await verificarArmazenamento(false);
@@ -1837,6 +1845,7 @@ const APP = (function () {
     $('#login-senha').addEventListener('keydown', e => { if (e.key === 'Enter') fazerLogin(); });
     $('#link-cadastro').addEventListener('click', () => { mostrarTela('tela-cadastro'); atualizarAvisosDeRede(); });
     $('#btn-iniciar-inspecao').addEventListener('click', () => novaInspecao());
+    $('#btn-bv-cronograma').addEventListener('click', () => mostrarTela('tela-cronograma'));
     $('#link-esqueci').addEventListener('click', () => { mostrarTela('tela-recuperar'); atualizarAvisosDeRede(); });
     $('#voltar-login-1').addEventListener('click', () => mostrarTela('tela-login'));
     $('#voltar-login-2').addEventListener('click', () => mostrarTela('tela-login'));
@@ -2050,9 +2059,26 @@ const APP = (function () {
     setInterval(() => { if (document.visibilityState === 'visible') verificarLiberacoes(); }, 60000);
   }
 
+  /** Abre "Nova inspeção" já preenchida com o canteiro programado no cronograma. */
+  async function inspecaoProgramada(item) {
+    await novaInspecao();
+    const lotes = Array.prototype.map.call($('#f-lote').options, o => o.value);
+    if (lotes.indexOf(item.lote) === -1) return;
+    $('#f-lote').value = item.lote;
+    const cadastrado = CONFIG.listarCanteiros(item.lote).indexOf(item.canteiro) !== -1;
+    aoMudarLote(cadastrado ? item.canteiro : 'Outro');
+    if (!cadastrado) { $('#f-canteiro-outro').value = item.canteiro; }
+    aoMudarCanteiro();
+    montarChecklist((item.itens || []).filter(i => CONFIG.itensInspecao.indexOf(i) !== -1));
+    aviso('Inspeção programada para ' + item.canteiro + '. Ao salvar, o check entra no cronograma.', 'sucesso', 5);
+  }
+
   return {
     iniciar: iniciar,
     estado: estado,
+    confirmar: confirmar,
+    inspecaoProgramada: inspecaoProgramada,
+    abrirInspecao: abrirDetalhe,
     aviso: aviso,
     carregando: carregando,
     mostrarTela: mostrarTela,

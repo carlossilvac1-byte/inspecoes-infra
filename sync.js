@@ -226,6 +226,11 @@ const SYNC = (function () {
       if (st === 'BLOQUEADO') { resumo.bloqueado = true; return resumo; }
       Object.assign(resumo, await enviarFila(manual));
       resumo.recebidas = await receber();
+      // Cronograma: falha aqui não pode travar as inspeções.
+      if (window.CRONO) {
+        try { resumo.cronograma = await CRONO.sincronizar(); }
+        catch (e) { if (String(e.message) === 'SESSAO_EXPIRADA') throw e; resumo.cronograma = { erro: e.message }; }
+      }
       await DB.kvSet('ultimaSincronizacao:' + AUTH.usuarioId(), new Date().toISOString());
     } catch (e) {
       resumo.erro = (e && e.message) || String(e);

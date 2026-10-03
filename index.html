@@ -273,6 +273,7 @@
         <span class="bv-seta" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
         <span>Iniciar inspeção</span>
       </button>
+      <button type="button" class="btn btn-bloco bv-cronograma" id="btn-bv-cronograma">Ver cronograma de inspeções</button>
     </div>
 
     <div class="cartao cartao-vidro bv-liberacoes" id="bv-liberacoes" hidden>
@@ -468,6 +469,72 @@
       <button type="button" class="btn btn-secundario" id="btn-editar-detalhe">Editar</button>
       <button type="button" class="btn btn-primario" id="btn-pdf-detalhe">Gerar PDF</button>
     </div>
+  </section>
+
+  <!-- ===================================================================
+       TELA — CRONOGRAMA (Gantt programado x realizado)
+       ================================================================ -->
+  <section class="tela tela-cronograma" id="tela-cronograma" hidden>
+    <div class="cartao cr-topo">
+      <div class="cr-titulo">
+        <div>
+          <h1>Cronograma de inspeções</h1>
+          <p class="apoio pequena">Programe as inspeções dos canteiros dos seus lotes e dê o check ao realizar.</p>
+        </div>
+        <div class="cr-seletor-ano" role="group" aria-label="Ano do planejamento">
+          <button type="button" class="cr-seta" id="cr-ano-ant" aria-label="Ano anterior">‹</button>
+          <select id="cr-ano" aria-label="Ano"></select>
+          <button type="button" class="cr-seta" id="cr-ano-prox" aria-label="Próximo ano">›</button>
+        </div>
+      </div>
+
+      <div class="cr-kpis">
+        <div class="cr-kpi"><b id="cr-k-total">0</b><span>Programadas</span></div>
+        <div class="cr-kpi k-real"><b id="cr-k-real">0</b><span>Realizadas</span></div>
+        <div class="cr-kpi k-and"><b id="cr-k-and">0</b><span>Em andamento</span></div>
+        <div class="cr-kpi k-atr"><b id="cr-k-atr">0</b><span>Em atraso</span></div>
+        <div class="cr-kpi k-prog"><b id="cr-k-prog">0</b><span>A iniciar</span></div>
+        <div class="cr-kpi k-ader"><b id="cr-k-ader">—</b><span>No prazo</span></div>
+      </div>
+      <div class="cr-progresso"><div class="cr-barra"><i id="cr-barra-real"></i></div>
+        <span id="cr-txt-progresso" class="apoio pequena"></span></div>
+
+      <div class="cr-filtros">
+        <label class="campo"><span class="rotulo">Lote</span><select id="cr-lote"></select></label>
+        <label class="campo" id="cr-campo-resp" hidden><span class="rotulo">Responsável</span><select id="cr-resp"></select></label>
+        <label class="campo"><span class="rotulo">Situação</span>
+          <select id="cr-situacao">
+            <option value="">Todas</option>
+            <option value="programado">A iniciar</option>
+            <option value="andamento">Em andamento</option>
+            <option value="atrasado">Em atraso</option>
+            <option value="realizado">Realizadas</option>
+          </select></label>
+      </div>
+
+      <div class="cr-acoes">
+        <div class="cr-visoes" role="tablist">
+          <button type="button" class="aba ativa" data-cr-visao="gantt">Gantt</button>
+          <button type="button" class="aba" data-cr-visao="lista">Lista / check</button>
+        </div>
+        <button type="button" class="btn btn-primario" id="cr-programar">+ Programar</button>
+      </div>
+      <p class="apoio pequena cr-aviso-base" id="cr-aviso-base" hidden>O cronograma está salvo neste aparelho.
+        A base central ainda não tem a tabela do cronograma — o administrador precisa rodar
+        <b>banco/03-cronograma.sql</b> no Supabase.</p>
+    </div>
+
+    <div class="cr-legenda" id="cr-legenda">
+      <span><i class="st-programado"></i>A iniciar</span>
+      <span><i class="st-andamento"></i>Em andamento</span>
+      <span><i class="st-atrasado"></i>Em atraso</span>
+      <span><i class="st-realizado"></i>Realizado</span>
+      <span><i class="st-realizado_atraso"></i>Realizado c/ atraso</span>
+      <span><b class="lg-check">✓</b>Data do check</span>
+      <span><b class="lg-hoje"></b>Hoje</span>
+    </div>
+    <div class="cartao cr-gantt-cartao" id="cr-gantt"></div>
+    <div id="cr-lista" class="cr-lista" hidden></div>
   </section>
 
   <!-- ===================================================================
@@ -759,6 +826,9 @@
   <button type="button" data-ir="tela-historico" class="nav-item" aria-label="Histórico">
     <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4"/><path d="M12 7.5V12l3 2"/></svg><span class="nav-rotulo">Histórico</span>
   </button>
+  <button type="button" data-ir="tela-cronograma" class="nav-item" aria-label="Cronograma">
+    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M7 13h5M10 16.5h7"/></svg><span class="nav-rotulo">Cronograma</span>
+  </button>
   <button type="button" data-ir="tela-painel" class="nav-item" aria-label="Painel">
     <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><rect x="5.5" y="11" width="3" height="6" rx="1"/><rect x="10.5" y="6" width="3" height="11" rx="1"/><rect x="15.5" y="9" width="3" height="8" rx="1"/></svg><span class="nav-rotulo">Painel</span>
   </button>
@@ -775,6 +845,10 @@
     <div class="giro"></div>
     <span id="txt-carregando">Processando…</span>
   </div>
+</div>
+
+<div class="modal" id="modal-crono" hidden role="dialog" aria-modal="true">
+  <div class="modal-caixa caixa-crono" id="modal-crono-conteudo"></div>
 </div>
 
 <!-- Caixa de confirmação própria (confirm() é bloqueado em PWA no iOS) -->
@@ -818,6 +892,7 @@
 <script src="db.js"></script>
 <script src="auth.js"></script>
 <script src="sync.js"></script>
+<script src="cronograma.js"></script>
 <script src="pdf.js"></script>
 <script src="painel.js"></script>
 <script src="app.js"></script>

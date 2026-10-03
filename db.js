@@ -61,6 +61,11 @@ const DB = (function () {
     usuariosLocais: 'id, email'
   });
 
+  // v4 — cronograma de inspeções (programado x realizado)
+  db.version(4).stores({
+    cronograma: 'id, usuarioId, ano, lote, status'
+  });
+
   // ---------------------------------------------------------------
   // Utilitários
   // ---------------------------------------------------------------
