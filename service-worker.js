@@ -9,7 +9,7 @@
  * altere VERSAO abaixo — é o que dispara a limpeza dos caches antigos.
  * ===================================================================== */
 
-const VERSAO = 'v4.4.0';
+const VERSAO = 'v4.4.1';
 const CACHE = 'inspecao-infra-' + VERSAO;
 const CACHE_MAPA = 'inspecao-infra-mapa';      // não muda com a versão: preserva as imagens
 const LIMITE_MAPA = 1500;                      // ~25 MB no máximo
@@ -36,10 +36,10 @@ const ARQUIVOS = [
   './sync.js',
   './cronograma.js',
   './mapa.js',
-  './vendor/leaflet/leaflet.js',
-  './vendor/leaflet/leaflet.css',
-  './vendor/leaflet/images/layers.png',
-  './vendor/leaflet/images/layers-2x.png',
+  './leaflet.js',
+  './leaflet.css',
+  './images/layers.png',
+  './images/layers-2x.png',
   './pdf.js',
   './painel.js',
   './app.js',
