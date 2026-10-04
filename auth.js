@@ -639,6 +639,33 @@ const AUTH = (function () {
     } catch (e) { /* informativo apenas */ }
   }
 
+  /** Token de acesso válido (ou null) — usado pelo canal de tempo real. */
+  async function obterTokenAcesso() {
+    try { return await obterToken(); } catch (e) { return null; }
+  }
+
+  /**
+   * Informa à base quantas inspeções ainda estão só no aparelho. Aparece
+   * para o administrador na tela de Liberações. Se a coluna ainda não
+   * existir (banco/04-tempo-real.sql não executado), desiste em silêncio.
+   */
+  let semColunaPendentes = false;
+  async function informarSituacao(pendentes) {
+    if (semColunaPendentes || !sessao || !sessao.usuarioId || modoLocal()) return;
+    try {
+      const cab = await cabecalhosAutenticados({ Prefer: 'return=minimal' });
+      const r = await fetchTimeout(base() + '/rest/v1/' + CONFIG.supabase.tabelaUsuarios +
+        '?id=eq.' + encodeURIComponent(sessao.usuarioId), {
+        method: 'PATCH', headers: cab,
+        body: JSON.stringify({ pendentes_envio: pendentes, ultimo_acesso: new Date().toISOString() })
+      }, 10000);
+      if (!r.ok) {
+        const t = await r.text().catch(() => '');
+        if (/pendentes_envio|PGRST204|column/i.test(t)) semColunaPendentes = true;
+      }
+    } catch (e) { /* informativo apenas */ }
+  }
+
   /* ===================================================================
    * ADMINISTRAÇÃO (exige perfil 'admin' — a RLS confirma no servidor)
    * =================================================================== */
@@ -738,9 +765,11 @@ const AUTH = (function () {
     // e-mail eles passam para a conta da base (migrarRegistrosLocais).
     if (configurado() && sessao && !sessao.desconectado && (sessao.local || !sessao.refreshToken)) {
       sessao.desconectado = true;
+      sessao.avisoMigracao = true;      // sobrevive ao recarregamento da atualização
       await DB.kvSet(CHAVE_SESSAO, sessao);
-      sessaoLocalEncerrada = true;
     }
+    // O aviso aparece enquanto a pessoa não entrar na base central.
+    sessaoLocalEncerrada = !!(configurado() && sessao && sessao.desconectado && sessao.avisoMigracao);
     // Revalida em segundo plano: a tela não espera pela rede.
     setTimeout(() => { revalidar(); }, 1500);
     window.addEventListener('online', () => { revalidar(); });
@@ -775,6 +804,8 @@ const AUTH = (function () {
 
     obterToken: obterToken,
     cabecalhosAutenticados: cabecalhosAutenticados,
+    obterTokenAcesso: obterTokenAcesso,
+    informarSituacao: informarSituacao,
     admin: admin
   };
 })();

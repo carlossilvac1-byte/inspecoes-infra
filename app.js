@@ -85,6 +85,8 @@ const APP = (function () {
     if (id === 'tela-mais') montarTelaMais();
     if (id === 'tela-admin') carregarUsuarios();
     if (id === 'tela-cronograma' && window.CRONO) CRONO.montar();
+    if (TELAS_VISUAL_ACESSO.indexOf(id) !== -1) $('#faixa-fila').hidden = true;
+    else if (window.SYNC && SYNC.ativo()) atualizarBadges();
   }
 
   function hojeISO() {
@@ -270,6 +272,18 @@ const APP = (function () {
       // Base central: o selo mostra a situação da fila de envio.
       const pend = await DB.listarPendentes();
       const comErro = pend.filter(r => r.status === 'erro').length;
+      // Faixa bem visível quando há inspeção só no aparelho
+      const faixa = $('#faixa-fila');
+      const telaInterna = TELAS_VISUAL_ACESSO.indexOf(estado.tela) === -1;
+      faixa.hidden = !pend.length || !telaInterna || estado.sincronizando;
+      if (pend.length) {
+        $('#faixa-fila-qtd').textContent = pend.length === 1 ? '1 inspeção aguardando envio'
+                                                            : pend.length + ' inspeções aguardando envio';
+        $('#faixa-fila-sub').textContent = comErro
+          ? 'Houve erro no envio: ' + (pend.find(r => r.status === 'erro').erroMsg || 'tente novamente.')
+          : (navigator.onLine ? 'Enviando automaticamente…' : 'Sem internet. Serão enviadas automaticamente assim que o sinal voltar.');
+        faixa.classList.toggle('erro', !!comErro);
+      }
       if (estado.sincronizando) {
         badge.classList.add('online');
         $('#txt-rede').textContent = 'Sincronizando…';
@@ -550,7 +564,10 @@ const APP = (function () {
 
   /** Dispara um ciclo logo após gravar (sem travar a tela). */
   function sincronizarEmSegundoPlano() {
-    if (SYNC.ativo()) setTimeout(() => SYNC.sincronizar(false), 300);
+    if (!SYNC.ativo()) return;
+    setTimeout(() => SYNC.sincronizar(false), 300);
+    SYNC.agendarSegundoPlano();     // se fechar o app antes de enviar, o Android termina depois
+    atualizarBadges();
   }
 
   async function sincronizarAgora() {
@@ -1741,8 +1758,8 @@ const APP = (function () {
           '<span class="selo ' + seloStatus + '">' + escapar(rotStatus) + '</span>' +
         '</div>' +
         '<div class="linha3">' + escapar(u.funcao || '—') +
-          ' • cadastro: ' + (u.criado_em ? dataBR(u.criado_em) : '—') +
-          ' • último acesso: ' + (u.ultimo_acesso ? dataBR(u.ultimo_acesso) : 'nunca') + '</div>' +
+          ' • cadastro: ' + (u.criado_em ? dataBR(u.criado_em) : '—') + '</div>' +
+        (u.status === 'ativo' ? situacaoEnvio(u) : '') +
         quadroBase +
         (ehAdm
           ? '<div class="linha3">Administrador: vê todas as inspeções de todos os lotes e libera acessos.</div>'
@@ -1794,6 +1811,23 @@ const APP = (function () {
 
       cont.appendChild(div);
     });
+  }
+
+  /** Última conexão do aparelho do colaborador e o que ainda não subiu. */
+  function situacaoEnvio(u) {
+    const ult = u.ultimo_acesso ? new Date(u.ultimo_acesso) : null;
+    const horas = ult ? (Date.now() - ult.getTime()) / 3600000 : null;
+    const pend = Number(u.pendentes_envio || 0);
+    let quando = 'nunca conectou';
+    if (ult) {
+      quando = horas < 1 ? 'há ' + Math.max(1, Math.round(horas * 60)) + ' min'
+             : horas < 48 ? 'há ' + Math.round(horas) + ' h' : 'há ' + Math.round(horas / 24) + ' dias';
+    }
+    const alerta = pend > 0 && (horas === null || horas > 24);
+    const cls = alerta ? 'envio-alerta' : (pend > 0 ? 'envio-pend' : 'envio-ok');
+    return '<div class="envio-situacao ' + cls + '"><i></i>Última conexão: <b>' + quando + '</b>' +
+      (pend > 0 ? ' • <b>' + pend + '</b> inspeç' + (pend === 1 ? 'ão' : 'ões') + ' aguardando envio no aparelho'
+                : ' • nada pendente no aparelho') + '</div>';
   }
 
   async function acaoAdmin(acao, u, lotes, visao) {
@@ -1859,6 +1893,7 @@ const APP = (function () {
     $('#btn-recarregar-usuarios').addEventListener('click', carregarUsuarios);
     $('#btn-bv-liberacoes').addEventListener('click', () => { estado.filtroLib = 'pendente'; mostrarTela('tela-admin'); });
     $('#btn-sincronizar').addEventListener('click', sincronizarAgora);
+    $('#btn-faixa-enviar').addEventListener('click', sincronizarAgora);
     $$('[data-filtro-lib]').forEach(b => b.addEventListener('click', () => {
       estado.filtroLib = b.dataset.filtroLib;
       desenharUsuarios(estado.usuarios || []);

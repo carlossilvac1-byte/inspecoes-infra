@@ -216,7 +216,7 @@ const SYNC = (function () {
     if (emExecucao || !ativo() || !AUTH.autenticado()) return { pulado: true };
     if (!AUTH.podeEnviar() && navigator.onLine) await AUTH.revalidar();
     if (!AUTH.podeEnviar()) return { pulado: true, sessaoExpirada: true };
-    if (!(await online())) { notificar('rede', { online: false }); return { pulado: true, offline: true }; }
+    if (!(await online())) { notificar('rede', { online: false }); agendarSegundoPlano(); return { pulado: true, offline: true }; }
 
     emExecucao = true;
     notificar('inicio');
@@ -232,13 +232,120 @@ const SYNC = (function () {
         catch (e) { if (String(e.message) === 'SESSAO_EXPIRADA') throw e; resumo.cronograma = { erro: e.message }; }
       }
       await DB.kvSet('ultimaSincronizacao:' + AUTH.usuarioId(), new Date().toISOString());
+      try { AUTH.informarSituacao((await DB.listarPendentes()).length); } catch (e) { /* informativo */ }
     } catch (e) {
       resumo.erro = (e && e.message) || String(e);
     } finally {
       emExecucao = false;
       notificar('fim', resumo);
+      // Sobrou algo na fila (falha ou sem rede no meio)? Deixa agendado.
+      if (resumo.falhas || resumo.erro) agendarSegundoPlano();
     }
     return resumo;
+  }
+
+  /* ===================================================================
+   * ENVIO EM SEGUNDO PLANO (Android / Chrome)
+   * -------------------------------------------------------------------
+   * Registra no navegador um pedido de "sincronize quando houver rede".
+   * Mesmo com o app fechado, o Chrome acorda o service worker assim que
+   * o sinal volta e ele envia a fila (ver service-worker.js). No iPhone
+   * o recurso não existe: o envio acontece na próxima abertura do app.
+   * =================================================================== */
+  function agendarSegundoPlano() {
+    try {
+      if (!ativo() || typeof window === 'undefined' || !window.document) return;
+      if (!('serviceWorker' in navigator) || !('SyncManager' in window)) return;
+      navigator.serviceWorker.ready
+        .then(reg => reg.sync && reg.sync.register('enviar-inspecoes'))
+        .catch(() => { /* navegador recusou: o envio segue pelo app aberto */ });
+    } catch (e) { /* recurso indisponível */ }
+  }
+
+  /* ===================================================================
+   * TEMPO REAL (Supabase Realtime)
+   * -------------------------------------------------------------------
+   * Para quem enxerga inspeções de outras pessoas (administrador e visão
+   * "todas"): um canal aberto com a base avisa no instante em que uma
+   * inspeção ou programação é gravada, e o app busca na hora — sem
+   * esperar os 30 s. O banco filtra pelo mesmo controle de acesso (RLS).
+   * Se o canal cair, reconecta sozinho; os 30 s continuam como reserva.
+   * =================================================================== */
+  const rt = { ws: null, ref: 0, batimento: null, espera: 5000, timerReconexao: null, timerBusca: null, conectado: false, tokenEnviado: null };
+
+  function rtEnviar(msg) {
+    if (rt.ws && rt.ws.readyState === 1) rt.ws.send(JSON.stringify(msg));
+  }
+  function rtFechar() {
+    clearInterval(rt.batimento); clearTimeout(rt.timerReconexao);
+    if (rt.ws) { try { rt.ws.onclose = null; rt.ws.close(); } catch (e) {} }
+    rt.ws = null; rt.conectado = false;
+  }
+  function rtAgendarReconexao() {
+    clearTimeout(rt.timerReconexao);
+    rt.timerReconexao = setTimeout(tempoReal, rt.espera);
+    rt.espera = Math.min(rt.espera * 2, 60000);
+  }
+  async function tempoReal() {
+    try {
+      if (typeof WebSocket === 'undefined' || !ativo() || !AUTH.autenticado() || !AUTH.veTodas()) { rtFechar(); return; }
+      if (rt.ws && (rt.ws.readyState === 0 || rt.ws.readyState === 1)) return;
+      if (!navigator.onLine) { rtAgendarReconexao(); return; }
+      const token = await AUTH.obterTokenAcesso();
+      if (!token) { rtAgendarReconexao(); return; }
+      const url = base().replace(/^http/, 'ws') + '/realtime/v1/websocket?apikey=' +
+                  encodeURIComponent(S().anonKey) + '&vsn=1.0.0';
+      const ws = new WebSocket(url);
+      rt.ws = ws;
+      ws.onopen = () => {
+        rt.ref = 0;
+        const ref = String(++rt.ref);
+        rt.tokenEnviado = token;
+        rtEnviar({
+          topic: 'realtime:inspecoes-infra', event: 'phx_join', ref: ref, join_ref: ref,
+          payload: {
+            config: {
+              broadcast: { ack: false, self: false }, presence: { key: '' }, private: false,
+              postgres_changes: [
+                { event: '*', schema: 'public', table: S().tabelaInspecoes },
+                { event: '*', schema: 'public', table: 'cronograma' }
+              ]
+            },
+            access_token: token
+          }
+        });
+        clearInterval(rt.batimento);
+        rt.batimento = setInterval(async () => {
+          rtEnviar({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(++rt.ref) });
+          // Token renovado (a cada ~1 h): repassa ao canal para continuar autorizado.
+          try {
+            const novo = await AUTH.obterTokenAcesso();
+            if (novo && novo !== rt.tokenEnviado) {
+              rt.tokenEnviado = novo;
+              rtEnviar({ topic: 'realtime:inspecoes-infra', event: 'access_token', payload: { access_token: novo }, ref: String(++rt.ref) });
+            }
+          } catch (e) { /* segue com o atual */ }
+        }, 25000);
+      };
+      ws.onmessage = (ev) => {
+        let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+        if (m.event === 'phx_reply' && m.payload && m.payload.status === 'ok' && m.topic === 'realtime:inspecoes-infra') {
+          rt.conectado = true; rt.espera = 5000; notificar('tempo-real', { conectado: true });
+        }
+        if (m.event === 'postgres_changes') {
+          // Uma gravação nova na base: busca já (agrupando rajadas).
+          clearTimeout(rt.timerBusca);
+          rt.timerBusca = setTimeout(() => sincronizar(false), 700);
+        }
+        if (m.event === 'phx_error' || (m.event === 'system' && m.payload && m.payload.status === 'error')) {
+          rtFechar(); rtAgendarReconexao();
+        }
+      };
+      ws.onclose = () => { rt.conectado = false; clearInterval(rt.batimento); notificar('tempo-real', { conectado: false }); rtAgendarReconexao(); };
+      ws.onerror = () => { /* onclose cuida da reconexão */ };
+    } catch (e) {
+      rtAgendarReconexao();
+    }
   }
 
   async function ultimaSincronizacao() {
@@ -248,11 +355,21 @@ const SYNC = (function () {
 
   function iniciar() {
     if (!ativo()) return;
-    window.addEventListener('online', () => { notificar('rede', { online: true }); sincronizar(false); });
-    window.addEventListener('offline', () => notificar('rede', { online: false }));
+    window.addEventListener('online', () => { notificar('rede', { online: true }); sincronizar(false); tempoReal(); });
+    window.addEventListener('offline', () => { notificar('rede', { online: false }); agendarSegundoPlano(); });
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') sincronizar(false);
+      if (document.visibilityState === 'visible') { sincronizar(false); tempoReal(); }
+      // Saindo do app (trocou de app, bloqueou a tela, fechou): envia na hora
+      // e deixa o envio em segundo plano agendado para quando houver sinal.
+      else { sincronizar(false); agendarSegundoPlano(); }
     });
+    window.addEventListener('pagehide', () => { sincronizar(false); agendarSegundoPlano(); });
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        if (e.data && e.data.tipo === 'sincronizar') sincronizar(false);
+      });
+    }
+    setTimeout(tempoReal, 2500);
     if (timer) clearInterval(timer);
     timer = setInterval(() => {
       if (document.visibilityState === 'visible') sincronizar(false);
@@ -267,7 +384,10 @@ const SYNC = (function () {
     online: online,
     ativo: ativo,
     aoMudar: aoMudar,
-    ultimaSincronizacao: ultimaSincronizacao
+    ultimaSincronizacao: ultimaSincronizacao,
+    agendarSegundoPlano: agendarSegundoPlano,
+    tempoReal: tempoReal,
+    tempoRealAtivo: () => rt.conectado
   };
 })();
 

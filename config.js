@@ -27,7 +27,7 @@ const CONFIG = {
     nomeCurto: 'Inspeções Infra',
     obra: 'EDP TRANSMISSÃO CONSTRUÇÃO',
     empresa: 'EDP TRANSMISSÃO CONSTRUÇÃO',
-    versao: '4.2.0',
+    versao: '4.3.0',
     // Logo oficial da EDP fixa em assets/ (edp-logo-neg.png, edp-simbolo.png
     // e logo-edp-base64.js para o PDF).
     logoOficialNoPacote: true

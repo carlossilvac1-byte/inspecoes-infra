@@ -5,7 +5,7 @@
   <!-- viewport-fit=cover + safe-area no CSS: a barra inferior do iPhone
        não cobre a navegação quando instalado na tela de início -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#1A1F2E">
+  <meta name="theme-color" content="#0B1B2D">
   <meta name="description" content="Registro de inspeções de campo — EDP TRANSMISSÃO CONSTRUÇÃO. Funciona sem internet.">
 
   <title>Inspeções - Infra | EDP TRANSMISSÃO CONSTRUÇÃO</title>
@@ -18,7 +18,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Inspeções Infra">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 </head>
 <body class="modo-publico" data-logo="oficial">
 
@@ -46,18 +47,28 @@
 <header class="cabecalho" id="cabecalho">
   <div class="cab-linha">
     <div class="cab-titulo">
-      <img src="assets/edp-logo-neg.png" alt="EDP" class="cab-logo">
+      <img src="assets/app-emblema.png" alt="" class="cab-emblema" width="40" height="40">
       <div class="cab-textos">
         <strong id="cab-nome">Inspeções - Infra</strong>
         <small id="cab-obra">EDP TRANSMISSÃO CONSTRUÇÃO</small>
       </div>
     </div>
+    <div class="cab-direita">
+    <img src="assets/edp-logo-neg.png" alt="EDP" class="cab-logo">
     <button type="button" class="badge-rede" id="badge-rede" title="Conexão e fila de envio">
       <span class="ponto" id="ponto-rede"></span>
       <span id="txt-rede">Verificando…</span>
     </button>
+    </div>
   </div>
 </header>
+
+<div class="faixa-fila" id="faixa-fila" hidden role="status">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.5-9 6 6 0 0 1 11.6 1.5A3.8 3.8 0 0 1 17.5 18"/><path d="M12 12v7M9 16l3 3 3-3"/></svg>
+  <div class="faixa-fila-txt"><b id="faixa-fila-qtd">0 inspeções aguardando envio</b>
+    <small id="faixa-fila-sub">Serão enviadas automaticamente assim que houver internet.</small></div>
+  <button type="button" class="btn btn-secundario" id="btn-faixa-enviar">Enviar agora</button>
+</div>
 
 <div id="avisos" class="avisos" aria-live="polite"></div>
 
@@ -72,6 +83,8 @@
     </div>
 
     <div class="cartao cartao-vidro cartao-login">
+      <div class="login-app"><img src="assets/app-emblema.png" alt="" width="46" height="46">
+        <div><b>Inspeções Infra</b><small>Inspeções de campo • EDP Transmissão</small></div></div>
       <h1>Bem-vindo!</h1>
       <p class="sub-vidro">Faça seu login para acessar o app.</p>
       <div class="aviso-embutido" id="aviso-modo-local" hidden>
@@ -292,6 +305,7 @@
     <form id="form-inspecao" novalidate>
       <div class="cartao">
         <h1 id="titulo-form">Nova inspeção</h1>
+        <div class="secao-cab"><span class="secao-num">1</span><div><b>Identificação</b><small>Responsável, data e local da inspeção</small></div></div>
 
         <div class="campo">
           <span class="rotulo">Responsável</span>
@@ -343,6 +357,7 @@
       </div>
 
       <div class="cartao">
+        <div class="secao-cab"><span class="secao-num">2</span><div><b>Itens inspecionados</b><small>Marque os itens e responda o checklist SIM / NÃO</small></div></div>
         <fieldset class="campo">
           <legend class="rotulo">O que foi inspecionado? <b class="obrig">*</b></legend>
           <div id="f-inspecionado" class="lista-check"></div>
@@ -356,6 +371,7 @@
       </div>
 
       <div class="cartao">
+        <div class="secao-cab"><span class="secao-num">3</span><div><b>Não conformidade</b><small>Registre os desvios encontrados</small></div></div>
         <div class="campo">
           <span class="rotulo">Não conformidade? <b class="obrig">*</b></span>
           <div class="radio-grande">
@@ -376,6 +392,7 @@
       </div>
 
       <div class="cartao">
+        <div class="secao-cab"><span class="secao-num">4</span><div><b>Evidências fotográficas</b><small>Até 20 fotos por inspeção</small></div></div>
         <span class="rotulo">Fotos <small id="contador-fotos">(0/20)</small></span>
         <div class="botoes-foto">
           <label class="btn btn-secundario btn-arquivo">
@@ -393,6 +410,7 @@
       </div>
 
       <div class="cartao">
+        <div class="secao-cab"><span class="secao-num">5</span><div><b>Observações e localização</b><small>Informações complementares e coordenadas GPS</small></div></div>
         <label class="campo">
           <span class="rotulo">Observações</span>
           <textarea id="f-observacoes" rows="4" placeholder="Informações complementares (opcional)."></textarea>

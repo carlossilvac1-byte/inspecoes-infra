@@ -647,122 +647,268 @@ const PDFGEN = (function () {
     return base + 12;
   }
 
+  /* ===================================================================
+   * PAINEL EM PÁGINA ÚNICA (A4 paisagem, estilo Power BI)
+   * -------------------------------------------------------------------
+   * Mesma composição da tela do painel: faixa de identidade, 6 KPIs,
+   * lote / status / NCs, evolução / empresa / itens e a cobertura de
+   * canteiros. Gerado por desenho vetorial (jsPDF), então o arquivo é
+   * idêntico no notebook e no celular.
+   * =================================================================== */
+  let emblemaCache = null;
+  async function emblemaApp() {
+    if (emblemaCache !== null) return emblemaCache;
+    try {
+      const r = await fetch('assets/app-emblema.png');
+      emblemaCache = await DB.blobParaDataUrl(await r.blob());
+    } catch (e) { emblemaCache = ''; }
+    return emblemaCache;
+  }
+
   async function gerarPainel(d) {
-    const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4', compress: true });
-    let y = TOPO_CONTEUDO;
-
+    const W = 297, H = 210, MG = 8, LW = W - MG * 2;
+    const doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape', compress: true });
+    const OK = '#1F9E8F', NC = '#D64545', TX = '#0F2233', TX2 = '#5B6B78', BD = '#E1E7EC', NAVY = '#0B1B2D';
     const p = (window.AUTH && AUTH.perfil) ? AUTH.perfil() : null;
-    y = secao(doc, y, 'Período e escopo');
-    y = linha(doc, y, 'Período', d.rotuloPeriodo);
-    y = linha(doc, y, 'Lotes considerados', d.lotes.length ? d.lotes.join(', ') : 'nenhum');
-    y = linha(doc, y, 'Emitido por', p ? (p.nome + ' — ' + p.funcao) : '—');
+    const fill = (hex) => cor(doc, hex, 'preenchimento');
+    const stroke = (hex) => cor(doc, hex, 'traco');
+    const txt = (hex) => { const c = rgb(hex); doc.setTextColor(c[0], c[1], c[2]); };
+    const fonte = (tam, peso) => { doc.setFont('helvetica', peso || 'normal'); doc.setFontSize(tam); };
+    const corta = (t, larg) => {
+      t = texto(String(t == null ? '' : t));
+      if (doc.getTextWidth(t) <= larg) return t;
+      while (t.length > 1 && doc.getTextWidth(t + '...') > larg) t = t.slice(0, -1);
+      return t + '...';
+    };
+    const pct = (a, b) => b ? Math.round(a * 100 / b) : 0;
+    function texto(v) { return String(v == null ? '' : v); }
 
-    // ---- Cartões (3 por linha) ---------------------------------
-    y = secao(doc, y + 2, 'Indicadores');
-    const larguraCartao = (LARG - 8) / 3;
-    const cartoes = [
-      [d.total, 'Inspeções no período', '', CONFIG.cores.verdeAgua],
-      [d.comNC, 'Com não conformidade', d.pctNC + '% do total', CONFIG.cores.naoConforme],
-      [d.ncAcumuladas, 'NCs em aberto (acumulado)', '', CONFIG.cores.naoConforme],
-      [d.canteirosInspecionados + '/' + d.totalCanteiros, 'Canteiros inspecionados',
-       d.pctCobertura + '% de cobertura', CONFIG.cores.conforme],
-      [d.diasUltima === null ? '—' : d.diasUltima, 'Dias desde a última inspeção',
-       d.ultimaData ? dataBR(d.ultimaData) : 'nenhuma', CONFIG.cores.verdeAgua],
-      [d.fotos, 'Fotos registradas', 'evidências no período', CONFIG.cores.conforme]
+    // ---- Fundo e faixa superior ------------------------------------
+    fill('#F3F6F9'); doc.rect(0, 0, W, H, 'F');
+    fill(NAVY); doc.rect(0, 0, W, 17, 'F');
+    const emb = await emblemaApp();
+    if (emb) { try { doc.addImage(emb, 'PNG', MG, 2.5, 12, 12); } catch (e) { /* sem emblema */ } }
+    fonte(13, 'bold'); txt('#FFFFFF'); doc.text('Painel de Inspeções de Campo', MG + 15, 8.2);
+    fonte(7, 'bold'); txt('#93A7BA'); doc.text(texto(CONFIG.app.obra), MG + 15, 12.6);
+    const lg = await logo();
+    let xDir = W - MG;
+    if (lg.dataUrl) {
+      const a = 7, l = a * ((lg.largura && lg.altura) ? lg.largura / lg.altura : 3.3);
+      try { doc.addImage(lg.dataUrl, 'PNG', W - MG - l, 5, l, a); xDir = W - MG - l - 6; } catch (e) { /* sem logo */ }
+      stroke('#2A3F55'); doc.setLineWidth(0.3); doc.line(xDir + 3, 4, xDir + 3, 13);
+    }
+    fonte(6.5, 'normal'); txt('#93A7BA');
+    doc.text('PERÍODO', xDir - 2, 6.6, { align: 'right' });
+    fonte(8.5, 'bold'); txt('#FFFFFF');
+    doc.text(texto(d.rotuloPeriodo), xDir - 2, 10.6, { align: 'right' });
+    fonte(6.5, 'normal'); txt('#93A7BA');
+    const filtros = (d.filtro && (d.filtro.lote || d.filtro.empresa))
+      ? 'Filtro: ' + [d.filtro.lote, d.filtro.empresa].filter(Boolean).join(' • ') : 'Lotes: ' + (d.lotes.join(', ') || '—');
+    doc.text(texto(filtros), xDir - 2, 14.2, { align: 'right' });
+
+    // ---- Cartão base ------------------------------------------------
+    const cartao = (x, y, w, h, titulo) => {
+      fill('#FFFFFF'); stroke(BD); doc.setLineWidth(0.25);
+      doc.roundedRect(x, y, w, h, 2.2, 2.2, 'FD');
+      if (titulo) { fonte(8.2, 'bold'); txt(TX); doc.text(titulo, x + 3.5, y + 6); }
+    };
+    const vazio = (x, y, w, h, msg) => {
+      fonte(7.2, 'normal'); txt(TX2); doc.text(msg, x + w / 2, y + h / 2, { align: 'center' });
+    };
+
+    // ---- KPIs (6) ---------------------------------------------------
+    const yK = 20, hK = 19, gap = 3.5, wK = (LW - gap * 5) / 6;
+    const kpis = [
+      ['Inspeções no período', String(d.total), (d.totalAcumulado || d.total) + ' no acumulado', OK],
+      ['Com não conformidade', d.pctNC + '%', d.comNC + ' de ' + d.total + ' inspeções', d.comNC ? NC : OK],
+      ['NCs em aberto (acumulado)', String(d.ncAcumuladas), 'em toda a base', d.ncAcumuladas ? NC : OK],
+      ['Canteiros inspecionados', d.pctCobertura + '%', d.canteirosInspecionados + ' de ' + d.totalCanteiros + ' (cobertura)', OK],
+      ['Última inspeção', d.ultimaData ? dataBR(d.ultimaData) : '—',
+        d.diasUltima === null ? 'nenhuma registrada' : (d.diasUltima === 0 ? 'hoje' : 'há ' + d.diasUltima + ' dia(s)'),
+        d.diasUltima !== null && d.diasUltima > CONFIG.limites.diasSemaforoVerde ? '#E8A317' : OK],
+      ['Fotos registradas', String(d.fotos), 'evidências no período', OK]
     ];
-    for (let i = 0; i < cartoes.length; i++) {
-      const col = i % 3;
-      if (col === 0) y = novaPaginaSePreciso(doc, y, 28);
-      const x = M + col * (larguraCartao + 4);
-      const fim = cartaoPDF(doc, x, y, larguraCartao, cartoes[i][0], cartoes[i][1], cartoes[i][2], cartoes[i][3]);
-      if (col === 2 || i === cartoes.length - 1) y = fim + 4;
-    }
-
-    // ---- Gráficos ----------------------------------------------
-    const alturaBarras = 58;
-    const alturaLista = (n) => Math.min(10, Math.max(1, n)) * 7.5 + 6;
-
-    y = secaoBloco(doc, y + 2, 'Inspeções por lote', alturaBarras);
-    y = barrasPDF(doc, y, d.porLote);
-
-    y = secaoBloco(doc, y, 'Canteiros com mais não conformidades',
-                   alturaLista(d.rankingCanteiros.length));
-    y = barrasHPDF(doc, y, d.rankingCanteiros, CONFIG.cores.naoConforme,
-                   'Nenhuma não conformidade no período.');
-
-    y = secaoBloco(doc, y, 'Inspeções por empresa', alturaBarras);
-    y = barrasPDF(doc, y, d.porEmpresa);
-
-    y = secaoBloco(doc, y, 'Evolução mensal (total e % com NC)', alturaBarras);
-    y = linhaPDF(doc, y, d.evolucao);
-
-    y = secaoBloco(doc, y, 'Distribuição por item inspecionado', alturaLista(d.itens.length));
-    y = barrasHPDF(doc, y, d.itens, CONFIG.cores.verdeAgua);
-
-    if (d.ehAdmin && d.responsaveis.length) {
-      y = secaoBloco(doc, y, 'Inspeções por responsável', alturaLista(d.responsaveis.length));
-      y = barrasHPDF(doc, y, d.responsaveis, CONFIG.cores.cabecalho);
-    }
-
-    // ---- Tabela de cobertura -----------------------------------
-    doc.addPage();
-    y = secao(doc, TOPO_CONTEUDO, 'Cobertura de canteiros');
-    const cols = [
-      { t: 'Canteiro', l: 74 }, { t: 'Lote', l: 16 }, { t: 'Última', l: 22 },
-      { t: 'Período', l: 18 }, { t: 'NCs', l: 14 }, { t: 'Situação', l: 38 }
-    ];
-    function cabTab(yy) {
-      cor(doc, CONFIG.cores.azulMarinho, 'preenchimento');
-      doc.rect(M, yy, LARG, 7.5, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      let x = M;
-      cols.forEach(c => { doc.text(c.t, x + 2, yy + 5.2); x += c.l; });
-      doc.setTextColor(20, 24, 31);
-      return yy + 7.5;
-    }
-    y = cabTab(y);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-
-    d.cobertura.forEach(c => {
-      const alt = 6.5;
-      if (y + alt > LIMITE_INFERIOR) {
-        doc.addPage();
-        y = cabTab(TOPO_CONTEUDO);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-      }
-      const situacao = c.dias === null ? 'Nunca inspecionado' : ('há ' + c.dias + ' dia(s)');
-      const corSem = c.semaforo === 'verde' ? CONFIG.cores.conforme
-                   : c.semaforo === 'amarelo' ? CONFIG.cores.pendente : CONFIG.cores.naoConforme;
-
-      cor(doc, CONFIG.cores.borda, 'traco');
-      doc.setLineWidth(0.15);
-      doc.line(M, y + alt, M + LARG, y + alt);
-
-      const valores = [
-        String(c.canteiro).replace(/^Canteiro\s+/i, ''), c.lote,
-        c.ultima ? dataBR(c.ultima) : '—', String(c.noPeriodo), String(c.ncs), situacao
-      ];
-      let x = M;
-      valores.forEach((v, i) => {
-        if (i === 5) {
-          cor(doc, corSem, 'preenchimento');
-          doc.circle(x + 3, y + 3.4, 1.3, 'F');
-          doc.setTextColor(20, 24, 31);
-          doc.text(doc.splitTextToSize(v, cols[i].l - 8)[0], x + 6, y + 4.5);
-        } else {
-          doc.text(doc.splitTextToSize(String(v), cols[i].l - 3)[0], x + 2, y + 4.5);
-        }
-        x += cols[i].l;
-      });
-      y += alt;
+    kpis.forEach((k, i) => {
+      const x = MG + i * (wK + gap);
+      cartao(x, yK, wK, hK);
+      fill(k[3]); doc.rect(x, yK + 1, 1.1, hK - 2, 'F');
+      fonte(6.6, 'bold'); txt(TX2); doc.text(corta(k[0].toUpperCase(), wK - 6), x + 3.5, yK + 5.2);
+      fonte(k[1].length > 7 ? 13 : 16, 'bold'); txt(k[3] === NC ? NC : TX); doc.text(k[1], x + 3.5, yK + 12.6);
+      fonte(6.4, 'normal'); txt(TX2); doc.text(corta(k[2], wK - 6), x + 3.5, yK + 16.6);
     });
 
-    await aplicarFaixas(doc, 'Painel de Indicadores de Inspeção',
-      'Painel  •  ' + d.rotuloPeriodo);
+    // ---- Barras horizontais empilhadas (Sem NC / Com NC) ------------
+    function barrasEmp(x, y, w, h, dados, msg) {
+      if (!dados.length || !dados.some(t => t.total)) return vazio(x, y, w, h, msg || 'Sem dados no período.');
+      const n = Math.min(dados.length, Math.floor(h / 6.2));
+      const lr = Math.min(30, w * 0.34), lv = 13, lb = w - lr - lv - 3;
+      const max = Math.max.apply(null, dados.map(t => t.total)) || 1;
+      dados.slice(0, n).forEach((t, i) => {
+        const yy = y + i * 6.2;
+        fonte(6.8, 'bold'); txt(TX); doc.text(corta(t.rotulo, lr - 2), x, yy + 3.4);
+        fill('#EEF2F5'); doc.roundedRect(x + lr, yy + 0.9, lb, 3.4, 0.8, 0.8, 'F');
+        const wOk = (t.total - t.nc) / max * lb, wNc = t.nc / max * lb;
+        if (wOk > 0) { fill(OK); doc.rect(x + lr, yy + 0.9, wOk, 3.4, 'F'); }
+        if (wNc > 0) { fill(NC); doc.rect(x + lr + wOk + (wOk > 0 ? 0.4 : 0), yy + 0.9, wNc, 3.4, 'F'); }
+        fonte(6.8, 'bold'); txt(TX); doc.text(String(t.total), x + lr + lb + 2, yy + 3.4);
+        if (t.nc) { fonte(5.6, 'normal'); txt(TX2); doc.text('(' + t.nc + ' NC)', x + lr + lb + 2 + doc.getTextWidth(String(t.total)) + 2.2, yy + 3.4); }
+      });
+    }
+    function barrasSim(x, y, w, h, dados, corB, msg, total) {
+      if (!dados.length) return vazio(x, y, w, h, msg || 'Sem dados no período.');
+      const n = Math.min(dados.length, Math.floor(h / 6.2));
+      const lr = Math.min(34, w * 0.4), lv = total ? 14 : 8, lb = w - lr - lv - 2;
+      const max = Math.max.apply(null, dados.map(t => t.valor)) || 1;
+      dados.slice(0, n).forEach((t, i) => {
+        const yy = y + i * 6.2;
+        fonte(6.8, 'bold'); txt(TX); doc.text(corta(t.rotulo, lr - 2), x, yy + 3.4);
+        fill('#EEF2F5'); doc.roundedRect(x + lr, yy + 0.9, lb, 3.4, 0.8, 0.8, 'F');
+        fill(corB); doc.roundedRect(x + lr, yy + 0.9, Math.max(0.8, t.valor / max * lb), 3.4, 0.8, 0.8, 'F');
+        fonte(6.8, 'bold'); txt(TX); doc.text(String(t.valor) + (total ? '  ' + pct(t.valor, total) + '%' : ''), x + lr + lb + 2, yy + 3.4);
+      });
+    }
+    function legendaNC(x, y) {
+      fill(OK); doc.rect(x, y - 2.2, 2.6, 2.6, 'F'); fonte(6.3, 'normal'); txt(TX2); doc.text('Sem NC', x + 3.6, y);
+      fill(NC); doc.rect(x + 17, y - 2.2, 2.6, 2.6, 'F'); doc.text('Com NC', x + 20.6, y);
+    }
+
+    // ---- Linha 2: lote | status | canteiros NC ----------------------
+    const y2 = yK + hK + 3.5, h2 = 50;
+    const w2a = 92, w2b = 86, w2c = LW - w2a - w2b - gap * 2;
+    const x2a = MG, x2b = x2a + w2a + gap, x2c = x2b + w2b + gap;
+    cartao(x2a, y2, w2a, h2, 'Inspeções por lote');
+    barrasEmp(x2a + 3.5, y2 + 10, w2a - 7, h2 - 17, d.porLote);
+    legendaNC(x2a + 3.5, y2 + h2 - 3.5);
+
+    cartao(x2b, y2, w2b, h2, 'Status das inspeções');
+    (function rosca() {
+      const cx = x2b + 21, cy = y2 + 29, R = 15, r = 9.5;
+      const tot = d.total, ok = d.conformes != null ? d.conformes : d.total - d.comNC, nc = d.comNC;
+      const fatias = tot ? [[ok, OK], [nc, NC]] : [[1, '#E6ECF1']];
+      let ang = -Math.PI / 2;
+      const soma = fatias.reduce((a, f) => a + f[0], 0) || 1;
+      fatias.forEach(f => {
+        if (!f[0]) return;
+        const fim = ang + f[0] / soma * Math.PI * 2;
+        fill(f[1]);
+        for (let a = ang; a < fim - 1e-6; a += Math.PI / 90) {
+          const b = Math.min(fim, a + Math.PI / 90 + 0.004);
+          doc.triangle(cx, cy, cx + R * Math.cos(a), cy + R * Math.sin(a), cx + R * Math.cos(b), cy + R * Math.sin(b), 'F');
+        }
+        ang = fim;
+      });
+      if (tot && ok && nc) {   // respiro branco entre as fatias
+        stroke('#FFFFFF'); doc.setLineWidth(0.6);
+        [-Math.PI / 2, -Math.PI / 2 + ok / soma * Math.PI * 2].forEach(a => doc.line(cx + r * Math.cos(a), cy + r * Math.sin(a), cx + R * Math.cos(a), cy + R * Math.sin(a)));
+      }
+      fill('#FFFFFF'); doc.circle(cx, cy, r, 'F');
+      fonte(13, 'bold'); txt(TX); doc.text(String(tot), cx, cy + 1.6, { align: 'center' });
+      fonte(5.8, 'normal'); txt(TX2); doc.text('Total', cx, cy + 5, { align: 'center' });
+      const lx = x2b + 42, lw = w2b - 46;
+      const itens = [['Conforme', ok, pct(ok, tot), OK], ['Com NC', nc, pct(nc, tot), NC]];
+      itens.forEach((it, i) => {
+        const yy = y2 + 20 + i * 8;
+        fill(it[3]); doc.circle(lx + 1.3, yy - 1.1, 1.3, 'F');
+        fonte(7.2, 'bold'); txt(TX); doc.text(it[0], lx + 4, yy);
+        doc.text(String(it[1]), lx + lw - 9, yy, { align: 'right' });
+        fonte(6, 'normal'); txt(TX2); doc.text('(' + it[2] + '%)', lx + lw, yy, { align: 'right' });
+      });
+      stroke(BD); doc.setLineWidth(0.2); doc.setLineDashPattern([0.8, 0.8], 0);
+      doc.line(lx, y2 + 32, lx + lw, y2 + 32); doc.setLineDashPattern([], 0);
+      stroke(NC); doc.setLineWidth(0.6); fill('#FFFFFF'); doc.circle(lx + 1.3, y2 + 37 - 1.1, 1.1, 'FD');
+      fonte(7, 'bold'); txt(TX); doc.text('NC em aberto (acum.)', lx + 4, y2 + 37);
+      doc.text(String(d.ncAcumuladas), lx + lw, y2 + 37, { align: 'right' });
+    })();
+
+    cartao(x2c, y2, w2c, h2, 'Canteiros com mais não conformidades');
+    if (d.rankingCanteiros.length) {
+      barrasSim(x2c + 3.5, y2 + 10, w2c - 7, h2 - 13, d.rankingCanteiros.map(t => ({ rotulo: String(t.rotulo).replace(/^Canteiro\s+/i, ''), valor: t.valor })), NC);
+    } else {
+      fill('#ECF7F2'); doc.roundedRect(x2c + 3.5, y2 + 11, w2c - 7, 14, 1.5, 1.5, 'F');
+      fonte(7.6, 'bold'); txt('#13795B'); doc.text('Nenhuma não conformidade no período.', x2c + 7, y2 + 17);
+      fonte(6.6, 'normal'); txt(TX2); doc.text('Todas as inspeções do período estão conformes.', x2c + 7, y2 + 21.5);
+    }
+
+    // ---- Linha 3: evolução | empresa | itens ------------------------
+    const y3 = y2 + h2 + 3.5, h3 = 50;
+    const w3a = 138, w3b = 70, w3c = LW - w3a - w3b - gap * 2;
+    const x3a = MG, x3b = x3a + w3a + gap, x3c = x3b + w3b + gap;
+    cartao(x3a, y3, w3a, h3, 'Evolução mensal (últimos 12 meses)');
+    legendaNC(x3a + w3a - 40, y3 + 6);
+    (function colunas() {
+      const ev = d.evolucao || [];
+      if (!ev.some(m => m.total)) return vazio(x3a, y3 + 4, w3a, h3, 'Sem inspeções nos últimos 12 meses.');
+      const gx = x3a + 10, gy = y3 + 11, gw = w3a - 14, gh = h3 - 20;
+      const max = Math.max.apply(null, ev.map(m => m.total));
+      const passo = max <= 4 ? 1 : max <= 10 ? 2 : max <= 25 ? 5 : Math.ceil(max / 5 / 5) * 5;
+      const topo = Math.ceil(max / passo) * passo || 1;
+      fonte(5.6, 'normal');
+      for (let v = 0; v <= topo; v += passo) {
+        const yy = gy + gh - v / topo * gh;
+        stroke('#E7EDF1'); doc.setLineWidth(0.15); doc.line(gx, yy, gx + gw, yy);
+        txt('#6B7B88'); doc.text(String(v), gx - 1.5, yy + 1, { align: 'right' });
+      }
+      const col = gw / ev.length, bw = Math.min(6.5, col * 0.58);
+      ev.forEach((m, i) => {
+        const x = gx + i * col + (col - bw) / 2, base = gy + gh;
+        const hOk = (m.total - m.nc) / topo * gh, hNc = m.nc / topo * gh;
+        if (hOk > 0) { fill(OK); doc.rect(x, base - hOk, bw, hOk, 'F'); }
+        if (hNc > 0) { fill(NC); doc.rect(x, base - hOk - hNc - (hOk > 0 ? 0.4 : 0), bw, hNc, 'F'); }
+        if (m.total) { fonte(5.8, 'bold'); txt(TX); doc.text(String(m.total), x + bw / 2, base - hOk - hNc - 1.3, { align: 'center' }); }
+        fonte(5.4, i === ev.length - 1 ? 'bold' : 'normal'); txt(i === ev.length - 1 ? TX : '#6B7B88');
+        doc.text(m.rotulo, x + bw / 2, base + 4, { align: 'center' });
+      });
+    })();
+
+    cartao(x3b, y3, w3b, h3, 'Inspeções por empresa');
+    barrasEmp(x3b + 3.5, y3 + 10, w3b - 7, h3 - 13, d.porEmpresa);
+    cartao(x3c, y3, w3c, h3, 'Distribuição por item inspecionado');
+    const totItens = d.itens.reduce((t, x) => t + x.valor, 0);
+    barrasSim(x3c + 3.5, y3 + 10, w3c - 7, h3 - 13, d.itens, OK, null, totItens);
+
+    // ---- Linha 4: cobertura de canteiros (3 colunas) ----------------
+    const y4 = y3 + h3 + 3.5, h4 = H - 9 - y4;
+    cartao(MG, y4, LW, h4, 'Cobertura de canteiros');
+    const cont = { verde: 0, amarelo: 0, vermelho: 0 };
+    d.cobertura.forEach(c => { cont[c.semaforo]++; });
+    const SEM = { verde: '#2E7D32', amarelo: '#E8A317', vermelho: NC };
+    let lx = MG + 52;
+    [['verde', 'Em dia (até 30 dias)'], ['amarelo', 'Atenção (31 a 60)'], ['vermelho', 'Crítico (+60 ou nunca)']].forEach(s => {
+      fill(SEM[s[0]]); doc.circle(lx, y4 + 5, 1.2, 'F');
+      fonte(6.6, 'bold'); txt(TX); doc.text(String(cont[s[0]]), lx + 2.6, y4 + 6);
+      fonte(6.4, 'normal'); txt(TX2); doc.text(s[1], lx + 2.6 + doc.getTextWidth(String(cont[s[0]])) + 1.6, y4 + 6);
+      lx += 50;
+    });
+    const colW = (LW - 7 - 8) / 3, linhaH = 3.75, yT = y4 + 9;
+    const porColuna = Math.max(1, Math.floor((h4 - 15) / linhaH));
+    const capac = porColuna * 3;
+    const lista = d.cobertura.slice(0, capac);
+    for (let c = 0; c < 3; c++) {
+      const cx = MG + 3.5 + c * (colW + 4);
+      fill(NAVY); doc.rect(cx, yT, colW, 4.6, 'F');
+      fonte(5.8, 'bold'); txt('#FFFFFF');
+      doc.text('Canteiro', cx + 1.6, yT + 3.2); doc.text('Lote', cx + colW * 0.52, yT + 3.2);
+      doc.text('Última', cx + colW * 0.64, yT + 3.2); doc.text('Situação', cx + colW * 0.8, yT + 3.2);
+      lista.slice(c * porColuna, (c + 1) * porColuna).forEach((it, k) => {
+        const yy = yT + 4.6 + k * linhaH;
+        if (k % 2) { fill('#F7FAFB'); doc.rect(cx, yy, colW, linhaH, 'F'); }
+        fonte(6, 'bold'); txt(TX); doc.text(corta(String(it.canteiro).replace(/^Canteiro\s+/i, ''), colW * 0.5 - 2), cx + 1.6, yy + 2.7);
+        fonte(6, 'normal'); doc.text(String(it.lote), cx + colW * 0.52, yy + 2.7);
+        doc.text(it.ultima ? dataBR(it.ultima).slice(0, 5) + '/' + dataBR(it.ultima).slice(8, 10) : '—', cx + colW * 0.64, yy + 2.7);
+        fill(SEM[it.semaforo]); doc.circle(cx + colW * 0.8 + 0.9, yy + 1.85, 0.9, 'F');
+        txt(TX2); doc.text(it.dias === null ? 'nunca' : (it.dias === 0 ? 'hoje' : it.dias + ' d'), cx + colW * 0.8 + 3, yy + 2.7);
+      });
+    }
+    if (d.cobertura.length > capac) {
+      fonte(6, 'normal'); txt(TX2);
+      doc.text('+ ' + (d.cobertura.length - capac) + ' canteiro(s) — lista completa no painel do app.', W - MG - 3.5, y4 + h4 - 1.8, { align: 'right' });
+    }
+
+    // ---- Rodapé -----------------------------------------------------
+    const emissao = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    fonte(6.4, 'normal'); txt(TX2);
+    doc.text('Emitido em ' + emissao + (p ? ' por ' + texto(p.nome) + (p.funcao ? ' — ' + texto(p.funcao) : '') : ''), MG, H - 3.6);
+    doc.text(texto(CONFIG.app.nome) + '  •  versão ' + CONFIG.app.versao, W - MG, H - 3.6, { align: 'right' });
 
     const nome = 'Inspecoes-Infra_Painel_' + new Date().toISOString().slice(0, 10) + '.pdf';
     return baixar(doc, nome);

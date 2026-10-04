@@ -9,7 +9,7 @@
  * altere VERSAO abaixo — é o que dispara a limpeza dos caches antigos.
  * ===================================================================== */
 
-const VERSAO = 'v4.2.0';
+const VERSAO = 'v4.3.0';
 const CACHE = 'inspecao-infra-' + VERSAO;
 
 /* Todos os arquivos necessários para o app funcionar 100% offline —
@@ -39,7 +39,9 @@ const ARQUIVOS = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-512-maskable.png',
-  './icons/apple-touch-icon.png'
+  './icons/apple-touch-icon.png',
+  './icons/favicon-64.png',
+  './assets/app-emblema.png'
 ];
 
 /* ---------------------------------------------------------------------
@@ -129,6 +131,44 @@ self.addEventListener('fetch', (evento) => {
       return emCache || new Response('', { status: 504, statusText: 'Offline' });
     }
   })());
+});
+
+/* ---------------------------------------------------------------------
+ * ENVIO EM SEGUNDO PLANO (Background Sync — Android / Chrome)
+ * -------------------------------------------------------------------
+ * O app registra o pedido "enviar-inspecoes" sempre que sobra algo na
+ * fila. Quando o sinal volta — mesmo com o app FECHADO — o Chrome acorda
+ * este service worker, que envia a fila com o mesmo código do app.
+ * Com o app aberto, só avisa a janela para sincronizar.
+ * Falhou (sem rede, sessão)? O navegador tenta de novo mais tarde.
+ * ------------------------------------------------------------------- */
+let moduloEnvio = false;
+try {
+  self.window = self;   // os módulos do app usam "window" como namespace
+  importScripts('./vendor/dexie.min.js', './config.js', './db.js', './auth.js', './sync.js');
+  moduloEnvio = true;
+} catch (e) {
+  console.warn('[SW] envio em segundo plano indisponível:', e && e.message);
+}
+
+async function enviarEmSegundoPlano() {
+  const janelas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  if (janelas.length) {
+    janelas.forEach(c => c.postMessage({ tipo: 'sincronizar' }));
+    return;
+  }
+  if (!moduloEnvio || !self.AUTH || !self.SYNC) return;
+  await AUTH.iniciar();
+  if (!AUTH.autenticado() || AUTH.modoLocal()) return;
+  const r = await SYNC.sincronizar(true);
+  const restantes = (await DB.listarPendentes()).length;
+  if (restantes && (r.offline || r.falhas || r.erro || r.pulado)) {
+    throw new Error('fila ainda pendente — o navegador tenta de novo');
+  }
+}
+
+self.addEventListener('sync', (evento) => {
+  if (evento.tag === 'enviar-inspecoes') evento.waitUntil(enviarEmSegundoPlano());
 });
 
 /* Permite que a página force a ativação de uma nova versão. */

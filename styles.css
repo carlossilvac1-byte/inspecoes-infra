@@ -1267,3 +1267,150 @@ button.bi-pdf:hover { background: #18A863; }
   .cabecalho, .navegacao, .barra-acoes, .avisos { display: none !important; }
   .cartao { box-shadow: none; border: 1px solid #999; }
 }
+
+/* =====================================================================
+ * TEMA CORPORATIVO (v4.3.0)
+ * ---------------------------------------------------------------------
+ * Camada final: fundo claro, cartões brancos com borda fina e sombra
+ * discreta, verde EDP só como destaque, tipografia do sistema (Segoe UI
+ * no Windows, San Francisco no iPhone, Roboto no Android).
+ * Contraste: ação primária #0B7F70 sobre branco = 4,9:1 (WCAG AA).
+ * ===================================================================== */
+:root {
+  --azul-marinho: #0B1B2D;
+  --fundo: #F3F6F9;
+  --primaria: #0B7F70;
+  --primaria-esc: #096A5E;
+  --realce: #1FBF73;
+  --texto: #0F2233;
+  --texto-apoio: #5B6B78;
+  --borda: #E1E7EC;
+  --raio-cartao: 14px;
+  --raio-botao: 10px;
+  --sombra-cartao: 0 1px 2px rgba(15, 34, 51, .04), 0 2px 8px rgba(15, 34, 51, .05);
+  --sombra-topo: 0 1px 0 rgba(255,255,255,.04), 0 4px 18px rgba(11, 27, 45, .28);
+  --fonte: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Calibri, Arial, sans-serif;
+}
+html, body { font-size: 16px; }
+body { background: var(--fundo); }
+
+/* Cabeçalho */
+.cabecalho { background: linear-gradient(180deg, #0F2338 0%, #0B1B2D 100%); padding-top: calc(env(safe-area-inset-top, 0px) + 9px); padding-bottom: 9px; }
+.cab-emblema { width: 40px; height: 40px; border-radius: 11px; flex: none; background: #0B1B2D;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 4px 10px rgba(0,0,0,.25); }
+.cab-titulo { gap: 11px; }
+.cab-textos strong { font-size: 16px; font-weight: 700; letter-spacing: -.1px; }
+.cab-textos small { color: #93A7BA; font-size: 11px; font-weight: 600; letter-spacing: .5px; }
+.cab-direita { display: flex; align-items: center; gap: 16px; flex: none; }
+.cab-direita .cab-logo { height: 24px; margin: 0; padding-right: 16px; border-right: 1px solid rgba(255,255,255,.14); box-sizing: content-box; }
+@media (max-width: 560px) { .cab-direita .cab-logo { display: none; } }
+.badge-rede { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); font-weight: 600; }
+
+/* Estrutura */
+main { padding-top: 16px; }
+.cartao { border-radius: var(--raio-cartao); border: 1px solid var(--borda); box-shadow: var(--sombra-cartao); padding: 18px; margin-bottom: 14px; }
+h1 { font-size: 21px; font-weight: 700; letter-spacing: -.2px; color: var(--texto); }
+h2 { font-weight: 700; color: var(--texto); }
+.apoio { color: var(--texto-apoio); }
+
+/* Cabeçalhos numerados das seções do formulário */
+.secao-cab { display: flex; align-items: center; gap: 12px; margin: 2px 0 16px; padding-bottom: 14px; border-bottom: 1px solid #EEF2F5; }
+.secao-cab b { display: block; font-size: 15.5px; font-weight: 700; color: var(--texto); line-height: 1.25; }
+.secao-cab small { display: block; font-size: 12.5px; color: var(--texto-apoio); }
+.secao-num { width: 30px; height: 30px; border-radius: 9px; flex: none; display: grid; place-items: center;
+  background: #E7F4F1; color: var(--primaria); font-weight: 800; font-size: 14px; border: 1px solid #C9E6DF; }
+#titulo-form { margin-bottom: 14px; }
+
+/* Campos */
+.rotulo { font-size: 13.5px; font-weight: 600; color: #2A3D4D; }
+input[type=text], input[type=date], input[type=search], input[type=email], input[type=password], select, textarea {
+  min-height: 48px; font-size: 15.5px; border: 1px solid #D5DEE5; border-radius: 10px; background-color: #fff;
+  transition: border-color .15s, box-shadow .15s; }
+input:hover:not(:disabled), select:hover:not(:disabled), textarea:hover { border-color: #B9C6D0; }
+input:focus, select:focus, textarea:focus { border-color: var(--primaria); box-shadow: 0 0 0 4px rgba(11,127,112,.12); }
+input:disabled, select:disabled { background: #F4F7F9; color: #94A3B0; border-color: #E4EAEE; }
+.campo-fixo { background: #F6F9FB; border-color: #E4EAEE; border-radius: 10px; min-height: 48px; }
+.lista-check > label, .lista-check > .item-insp > label { border-radius: 10px; border-color: #DCE4EA; background: #fff; min-height: 46px; font-size: 15px; }
+.lista-check > label:hover, .lista-check > .item-insp > label:hover { border-color: #B9C6D0; }
+.lista-check > label.marcado, .lista-check > .item-insp > label.marcado { background: #ECF7F4; border-color: var(--primaria); }
+
+/* Botões */
+.btn { border-radius: 10px; font-weight: 700; letter-spacing: .1px; text-transform: none; min-height: 46px; font-size: 15px;
+  transition: background-color .15s, border-color .15s, box-shadow .15s, transform .05s; }
+.btn-primario { background: var(--primaria); border-color: var(--primaria); box-shadow: 0 1px 2px rgba(11,127,112,.25); }
+.btn-primario:hover { background: var(--primaria-esc); }
+.btn-secundario { background: #fff; color: var(--primaria); border: 1px solid #BFDDD6; }
+.btn-secundario:hover { background: #F1F9F7; border-color: var(--primaria); }
+.btn-neutro { background: #fff; color: #2A3D4D; border: 1px solid #D5DEE5; }
+.btn-neutro:hover { background: #F6F9FB; border-color: #B9C6D0; }
+.btn-texto { color: var(--primaria); }
+
+/* Histórico: cartões de lista mais limpos */
+.lista { gap: 10px; }
+.item { border-radius: 12px; border: 1px solid var(--borda); border-left: 4px solid var(--conforme); box-shadow: var(--sombra-cartao); padding: 14px 16px; }
+.item:hover { border-color: #CBD6DE; }
+.item .data { font-size: 14px; font-weight: 700; color: var(--texto-apoio); letter-spacing: .2px; }
+.item .linha2 { font-size: 15.5px; margin-top: 4px; }
+.item .linha2 b { font-weight: 700; }
+.item .linha3 { font-size: 13px; }
+.item .acoes-item { gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #EEF2F5; }
+.item .acoes-item .btn { flex: 0 1 auto; min-height: 38px; font-size: 13.5px; padding: 6px 16px; }
+.selo { font-size: 11.5px; letter-spacing: .2px; }
+
+/* Tabelas de detalhe */
+.tabela-detalhe th, .tabela-detalhe td { border-color: #E6ECF0; }
+.tabela-detalhe th { background: #F6F9FB; color: #2A3D4D; font-size: 14px; }
+
+/* Avisos */
+.aviso { border-radius: 12px; box-shadow: 0 8px 24px rgba(15,34,51,.12); border: 1px solid var(--borda); border-left-width: 4px; }
+
+/* Navegação inferior: barra clara e corporativa */
+.navegacao { background: rgba(255,255,255,.94); border: 1px solid #DDE5EA; border-radius: 22px;
+  box-shadow: 0 12px 32px rgba(15,34,51,.16), 0 2px 6px rgba(15,34,51,.06);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px); backdrop-filter: saturate(1.4) blur(14px); height: 66px; }
+.nav-item { color: #66788A; border-radius: 16px; height: 54px; }
+.nav-item:hover { color: var(--texto); background: #F2F6F8; }
+.nav-item.ativa { color: var(--primaria); transform: none; background: #E7F4F1;
+  box-shadow: inset 0 0 0 1px #C9E6DF; }
+.nav-item.ativa::after { bottom: 4px; width: 18px; height: 3px; margin-left: -9px; border-radius: 3px; background: var(--primaria); box-shadow: none; }
+.nav-item:focus-visible { outline-color: var(--primaria); }
+
+/* Exportar / contas: números */
+.num { border-radius: 12px; }
+
+/* Cronograma e painel herdam a nova paleta */
+.cr-seletor-ano select { font-family: inherit; }
+.tela-cronograma .cartao { border-radius: 14px; }
+
+/* KPI "Última inspeção": data nunca corta */
+.bi-kpi-val { font-size: clamp(19px, 1.65vw, 28px); white-space: nowrap; }
+.bi-kpi-txt { flex: 1; }
+@media (max-width: 520px) { .bi-kpi-val { font-size: 21px; } }
+
+/* Boas-vindas e login: emblema do app */
+.bv-app { display: inline-flex; align-items: center; gap: 10px; margin-top: 10px; color: #D6E4EF; font-weight: 700; font-size: 14px; }
+.bv-app img { width: 34px; height: 34px; border-radius: 9px; }
+.login-app { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.login-app img { width: 46px; height: 46px; border-radius: 12px; box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 6px 16px rgba(0,0,0,.3); background: #0B1B2D; }
+.login-app b { display: block; color: #fff; font-size: 16px; font-weight: 800; letter-spacing: -.1px; }
+.login-app small { display: block; color: #9FB3C4; font-size: 12px; font-weight: 600; }
+
+/* Faixa "aguardando envio" (fica logo abaixo do cabeçalho) */
+.faixa-fila { position: sticky; top: 58px; z-index: 34; display: flex; align-items: center; gap: 12px;
+  background: #FFF8E6; border-bottom: 1px solid #F3D591; color: #6B4E00; padding: 10px 14px; }
+.faixa-fila svg { width: 26px; height: 26px; flex: none; fill: none; stroke: #B57F00; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.faixa-fila-txt { flex: 1; min-width: 0; line-height: 1.25; }
+.faixa-fila-txt b { display: block; font-size: 14.5px; }
+.faixa-fila-txt small { font-size: 12.5px; color: #7A5A00; }
+.faixa-fila .btn { min-height: 38px; padding: 6px 14px; font-size: 13.5px; flex: none; }
+.faixa-fila.erro { background: #FDECEC; border-bottom-color: #F0BDBD; color: #8E1C1C; }
+.faixa-fila.erro svg { stroke: #C62828; }
+.faixa-fila.erro small { color: #8E1C1C; }
+
+/* Liberações: situação de envio do aparelho */
+.envio-situacao { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; margin-top: 8px;
+  padding: 7px 10px; border-radius: 8px; background: #F4F8F6; color: #2A3D4D; }
+.envio-situacao i { width: 9px; height: 9px; border-radius: 50%; background: #2E9D57; flex: none; }
+.envio-situacao.envio-pend { background: #FFF8E6; } .envio-situacao.envio-pend i { background: #E8A317; }
+.envio-situacao.envio-alerta { background: #FDECEC; color: #8E1C1C; } .envio-situacao.envio-alerta i { background: #C62828; }
+.usuario-item .data { font-size: 16px; color: var(--texto); letter-spacing: 0; }

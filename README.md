@@ -4,7 +4,7 @@ Aplicativo web instalável (PWA) para registro de inspeções de canteiros,
 alojamentos, cozinhas/refeitórios e áreas de vivência — **EDP TRANSMISSÃO
 CONSTRUÇÃO** — com funcionamento integral **sem internet**.
 
-Versão 4.2.0 — **painel em visão BI (página única)**, **base central com controle de acesso** (Supabase) e **cronograma de inspeções**.
+Versão 4.3.0 — **visual corporativo e logo oficial**, **PDF do painel em página única (A4 paisagem)**, **envio em segundo plano e tempo real** (rode `banco/04-tempo-real.sql`), **painel em visão BI**, **base central com controle de acesso** (Supabase) e **cronograma de inspeções**.
 
 **Cronograma (v4.1.0):** aba *Cronograma* com seleção de ano, todos os canteiros dos
 lotes liberados para o usuário, programação por período (com repetição mensal,
