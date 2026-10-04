@@ -686,17 +686,17 @@ const PDFGEN = (function () {
     // ---- Fundo e faixa superior ------------------------------------
     fill('#F3F6F9'); doc.rect(0, 0, W, H, 'F');
     fill(NAVY); doc.rect(0, 0, W, 17, 'F');
-    const emb = await emblemaApp();
-    if (emb) { try { doc.addImage(emb, 'PNG', MG, 2.5, 12, 12); } catch (e) { /* sem emblema */ } }
-    fonte(13, 'bold'); txt('#FFFFFF'); doc.text('Painel de Inspeções de Campo', MG + 15, 8.2);
-    fonte(7, 'bold'); txt('#93A7BA'); doc.text(texto(CONFIG.app.obra), MG + 15, 12.6);
+    // Logo oficial da EDP à esquerda (a logo do app é só o ícone de instalação)
     const lg = await logo();
-    let xDir = W - MG;
+    let xTit = MG;
     if (lg.dataUrl) {
       const a = 7, l = a * ((lg.largura && lg.altura) ? lg.largura / lg.altura : 3.3);
-      try { doc.addImage(lg.dataUrl, 'PNG', W - MG - l, 5, l, a); xDir = W - MG - l - 6; } catch (e) { /* sem logo */ }
-      stroke('#2A3F55'); doc.setLineWidth(0.3); doc.line(xDir + 3, 4, xDir + 3, 13);
+      try { doc.addImage(lg.dataUrl, 'PNG', MG, 5, l, a); xTit = MG + l + 7; } catch (e) { /* sem logo */ }
+      stroke('#2A3F55'); doc.setLineWidth(0.3); doc.line(xTit - 3.5, 4, xTit - 3.5, 13);
     }
+    fonte(13, 'bold'); txt('#FFFFFF'); doc.text('Painel de Inspeções de Campo', xTit, 8.2);
+    fonte(7, 'bold'); txt('#93A7BA'); doc.text(texto(CONFIG.app.obra), xTit, 12.6);
+    const xDir = W - MG + 2;
     fonte(6.5, 'normal'); txt('#93A7BA');
     doc.text('PERÍODO', xDir - 2, 6.6, { align: 'right' });
     fonte(8.5, 'bold'); txt('#FFFFFF');
