@@ -201,6 +201,7 @@ const PAINEL = (function () {
     dadosAtuais = {
       checklistNao: checklistNao,
       conformes: noPeriodo.length - comNC.length,
+      inspecoesPeriodo: noPeriodo,
       totalAcumulado: todas.length,
       filtro: Object.assign({}, filtro),
       checklistRespostas: respTotal,
@@ -478,6 +479,11 @@ const PAINEL = (function () {
       longo: true, sufixo: ' resposta(s) NÃO',
       vazio: d.checklistRespostas ? 'Nenhuma resposta NÃO no período.' : 'Nenhum checklist respondido no período.' });
     $('#pa-ck-sub').textContent = d.pctChecklistSim === null ? '' : d.pctChecklistSim + '% das respostas conformes (SIM)';
+    if (window.MAPA) {
+      const info = MAPA.painel(document.getElementById('bi-mapa-area'), d.inspecoesPeriodo || []);
+      $('#bi-mapa-info').textContent = info.total + ' local(is) no período' +
+        (info.semCoord ? ' • ' + info.semCoord + ' sem GPS' : '');
+    }
     $('#cartao-graf-responsavel').hidden = !d.ehAdmin;
     if (d.ehAdmin) $('#pa-graf-responsavel').innerHTML = barrasSimples(d.responsaveis, COR_OK, { sufixo: ' inspeção(ões)' });
   }
@@ -585,7 +591,7 @@ const PAINEL = (function () {
     window.addEventListener('scroll', () => {
       if ($('#tela-painel').hidden) return;
       let atual = 'bi-resumo';
-      ['bi-resumo', 'bi-analises', 'bi-canteiros'].forEach(id => {
+      ['bi-resumo', 'bi-analises', 'bi-mapa', 'bi-canteiros'].forEach(id => {
         const el = document.getElementById(id);
         if (el && el.getBoundingClientRect().top < 140) atual = id;
       });

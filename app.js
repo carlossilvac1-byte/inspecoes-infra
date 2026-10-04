@@ -942,6 +942,7 @@ const APP = (function () {
     limparErros('#form-inspecao');
     await desenharFotos();
     mostrarTela('tela-nova');
+    atualizarMapaForm();
 
     DB.obterGeolocalizacao().then(g => {
       if (!estado.registro) return;
@@ -958,8 +959,20 @@ const APP = (function () {
     if (!r) return;
     $('#txt-geo').textContent = (r.latitude !== null)
       ? ('Lat ' + r.latitude + ' / Long ' + r.longitude +
-         (r.precisaoGps ? ' (±' + r.precisaoGps + ' m)' : ''))
+         (r.precisaoGps ? ' (±' + r.precisaoGps + ' m)' : '') +
+         (r.obsGeo === 'Ajustado no mapa' ? ' • ajustado no mapa' : ''))
       : (r.obsGeo || 'Não capturada.');
+    atualizarMapaForm();
+  }
+
+  /** Mapa do formulário: mostra o ponto e aceita ajuste manual do pino. */
+  function atualizarMapaForm() {
+    if (!window.MAPA || estado.tela !== 'tela-nova' || !estado.registro) return;
+    MAPA.formulario(estado.registro, (lat, lng) => {
+      if (!estado.registro) return;
+      Object.assign(estado.registro, { latitude: lat, longitude: lng, precisaoGps: null, obsGeo: 'Ajustado no mapa' });
+      $('#txt-geo').textContent = 'Lat ' + lat + ' / Long ' + lng + ' • ajustado no mapa';
+    });
   }
 
   async function editarInspecao(id) {
@@ -994,6 +1007,7 @@ const APP = (function () {
     limparErros('#form-inspecao');
     await desenharFotos();
     mostrarTela('tela-nova');
+    atualizarMapaForm();
   }
 
   async function salvarFormulario(ev) {
@@ -1327,8 +1341,17 @@ const APP = (function () {
     });
     html += '</div>';
 
+    if (r.latitude !== null && r.longitude !== null && r.latitude !== undefined) {
+      html = html.replace('<h2 style="margin-top:18px">Fotos', '<h2 style="margin-top:18px">Localização</h2>' +
+        '<div class="mapa-box"><div id="mapa-detalhe" class="mapa"></div>' +
+        '<div class="mapa-offline" hidden>Sem internet: o mapa aparece quando a conexão voltar.</div></div>' +
+        '<a class="btn btn-secundario btn-mapa-google" target="_blank" rel="noopener" href="' +
+        MAPA.linkGoogle(r.latitude, r.longitude) + '">Abrir no Google Maps</a>' +
+        '<h2 style="margin-top:18px">Fotos');
+    }
     $('#detalhe-conteudo').innerHTML = html;
     mostrarTela('tela-detalhe');
+    if (window.MAPA) MAPA.detalhe(document.getElementById('mapa-detalhe'), r, r.naoConformidade === 'Sim');
   }
 
   /* ===================================================================

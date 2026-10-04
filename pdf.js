@@ -362,6 +362,25 @@ const PDFGEN = (function () {
       (reg.latitude !== null && reg.longitude !== null)
         ? (reg.latitude + ', ' + reg.longitude + (reg.precisaoGps ? '  (±' + reg.precisaoGps + ' m)' : ''))
         : (reg.obsGeo || 'Não capturada'));
+    if (reg.latitude !== null && reg.longitude !== null && reg.latitude !== undefined && window.MAPA) {
+      // Miniatura do mapa do local (precisa de internet; sem rede sai só a coordenada)
+      try {
+        const img = await MAPA.imagemEstatica(reg.latitude, reg.longitude,
+          { zoom: 16, largura: 900, altura: 360, nc: reg.naoConformidade === 'Sim' });
+        if (img) {
+          const altMapa = LARG * 360 / 900;
+          y = novaPaginaSePreciso(doc, y + 2, altMapa + 9);
+          cor(doc, CONFIG.cores.borda, 'traco'); doc.setLineWidth(0.3);
+          doc.addImage(img, 'JPEG', M, y, LARG, altMapa);
+          doc.rect(M, y, LARG, altMapa);
+          y += altMapa + 4;
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(11, 127, 112);
+          doc.textWithLink('Abrir este local no Google Maps', M, y + 1, { url: MAPA.linkGoogle(reg.latitude, reg.longitude) });
+          doc.setTextColor(20, 24, 31);
+          y += 5;
+        }
+      } catch (e) { /* segue sem o mapa */ }
+    }
     y = linha(doc, y, 'Registrado em', dataBR(reg.criadoEm));
     if ((reg.versao || 1) > 1) y = linha(doc, y, 'Última edição', dataBR(reg.atualizadoEm));
     if (reg.excluido) y = linha(doc, y, 'Registro excluído em', dataBR(reg.excluidoEm), true);

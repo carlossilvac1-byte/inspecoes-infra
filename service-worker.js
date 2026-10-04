@@ -9,8 +9,19 @@
  * altere VERSAO abaixo — é o que dispara a limpeza dos caches antigos.
  * ===================================================================== */
 
-const VERSAO = 'v4.3.1';
+const VERSAO = 'v4.4.0';
 const CACHE = 'inspecao-infra-' + VERSAO;
+const CACHE_MAPA = 'inspecao-infra-mapa';      // não muda com a versão: preserva as imagens
+const LIMITE_MAPA = 1500;                      // ~25 MB no máximo
+
+async function limitarCacheMapa(cache) {
+  try {
+    const chaves = await cache.keys();
+    if (chaves.length > LIMITE_MAPA) {
+      await Promise.all(chaves.slice(0, chaves.length - LIMITE_MAPA).map(k => cache.delete(k)));
+    }
+  } catch (e) { /* manutenção opcional */ }
+}
 
 /* Todos os arquivos necessários para o app funcionar 100% offline —
    incluindo a logo EDP, que precisa aparecer sem rede.
@@ -24,6 +35,11 @@ const ARQUIVOS = [
   './auth.js',
   './sync.js',
   './cronograma.js',
+  './mapa.js',
+  './vendor/leaflet/leaflet.js',
+  './vendor/leaflet/leaflet.css',
+  './vendor/leaflet/images/layers.png',
+  './vendor/leaflet/images/layers-2x.png',
   './pdf.js',
   './painel.js',
   './app.js',
@@ -71,7 +87,7 @@ self.addEventListener('activate', (evento) => {
   evento.waitUntil((async () => {
     const chaves = await caches.keys();
     await Promise.all(chaves
-      .filter(k => k.startsWith('inspecao-infra-') && k !== CACHE)
+      .filter(k => k.startsWith('inspecao-infra-') && k !== CACHE && k !== CACHE_MAPA)
       .map(k => caches.delete(k)));
     if (self.registration.navigationPreload) {
       try { await self.registration.navigationPreload.disable(); } catch (e) {}
@@ -94,6 +110,28 @@ self.addEventListener('fetch', (evento) => {
 
   const url = new URL(req.url);
   const mesmaOrigem = (url.origin === self.location.origin);
+
+  // Imagens do mapa: guardadas no aparelho depois da 1ª vez (cache primeiro),
+  // para o mapa de um canteiro já visto abrir mesmo sem sinal.
+  if (/(^|\.)basemaps\.cartocdn\.com$|^server\.arcgisonline\.com$/.test(url.hostname)) {
+    evento.respondWith((async () => {
+      const cache = await caches.open(CACHE_MAPA);
+      const guardado = await cache.match(req);
+      // Resposta "opaca" não serve para pedido com CORS (miniatura do PDF)
+      if (guardado && !(req.mode === 'cors' && guardado.type === 'opaque')) return guardado;
+      try {
+        const rede = await fetch(req);
+        if (rede && (rede.ok || rede.type === 'opaque')) {
+          cache.put(req, rede.clone());
+          limitarCacheMapa(cache);
+        }
+        return rede;
+      } catch (e) {
+        return new Response('', { status: 504, statusText: 'Offline' });
+      }
+    })());
+    return;
+  }
   if (!mesmaOrigem) return;                          // APIs externas: sem cache
 
   // Navegação: devolve o index.html mesmo sem rede

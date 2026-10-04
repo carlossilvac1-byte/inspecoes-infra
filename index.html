@@ -11,6 +11,7 @@
   <title>Inspeções - Infra | EDP TRANSMISSÃO CONSTRUÇÃO</title>
 
   <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="styles.css">
 
   <!-- PWA no iOS (o Safari não lê tudo do manifest) -->
@@ -418,6 +419,11 @@
             <span id="txt-geo" class="apoio pequena">Não capturada.</span>
             <button type="button" class="btn btn-texto" id="btn-geo">Capturar GPS</button>
           </div>
+          <div class="mapa-box" hidden>
+            <div id="mapa-form" class="mapa"></div>
+            <div class="mapa-offline" hidden>Sem internet: o mapa aparece quando a conexão voltar. As coordenadas do GPS já ficam registradas.</div>
+            <p class="apoio pequena mapa-dica">Toque no mapa ou arraste o pino para ajustar o local exato do canteiro.</p>
+          </div>
         </div>
       </div>
 
@@ -667,6 +673,17 @@
               <div class="bi-painel-cab"><h3>Inspeções por responsável</h3><small class="bi-sub">visível ao administrador</small></div>
               <div id="pa-graf-responsavel"></div>
             </div>
+          </div>
+        </section>
+
+        <section class="bi-secao" id="bi-mapa">
+          <div class="bi-tabela-cab">
+            <h2 class="bi-secao-tit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4L3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/></svg>Mapa das inspeções</h2>
+            <div class="bi-legenda"><span><i class="ok"></i>Sem NC</span><span><i class="nc"></i>Com NC</span><span class="bi-sub" id="bi-mapa-info"></span></div>
+          </div>
+          <div class="bi-painel bi-painel-mapa">
+            <div id="bi-mapa-area" class="mapa mapa-painel"></div>
+            <div class="mapa-offline" hidden>Sem internet: o mapa aparece quando a conexão voltar.</div>
           </div>
         </section>
 
@@ -971,6 +988,8 @@
 <script src="auth.js"></script>
 <script src="sync.js"></script>
 <script src="cronograma.js"></script>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="mapa.js"></script>
 <script src="pdf.js"></script>
 <script src="painel.js"></script>
 <script src="app.js"></script>
