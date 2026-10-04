@@ -9,9 +9,9 @@
  * altere VERSAO abaixo — é o que dispara a limpeza dos caches antigos.
  * ===================================================================== */
 
-const VERSAO = 'v4.4.1';
+const VERSAO = 'v4.4.2';
 const CACHE = 'inspecao-infra-' + VERSAO;
-const CACHE_MAPA = 'inspecao-infra-mapa';      // não muda com a versão: preserva as imagens
+const CACHE_MAPA = 'inspecao-infra-mapa-v2';      // não muda com a versão: preserva as imagens
 const LIMITE_MAPA = 1500;                      // ~25 MB no máximo
 
 async function limitarCacheMapa(cache) {
@@ -113,7 +113,7 @@ self.addEventListener('fetch', (evento) => {
 
   // Imagens do mapa: guardadas no aparelho depois da 1ª vez (cache primeiro),
   // para o mapa de um canteiro já visto abrir mesmo sem sinal.
-  if (/(^|\.)basemaps\.cartocdn\.com$|^server\.arcgisonline\.com$/.test(url.hostname)) {
+  if (/^tile\.openstreetmap\.org$|^server\.arcgisonline\.com$/.test(url.hostname)) {
     evento.respondWith((async () => {
       const cache = await caches.open(CACHE_MAPA);
       const guardado = await cache.match(req);

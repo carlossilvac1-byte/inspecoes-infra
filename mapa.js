@@ -7,7 +7,7 @@
  *  • PDF: miniatura do mapa montada a partir das imagens do mapa.
  *  • Painel: todos os locais inspecionados — verde sem NC, vermelho com NC.
  *
- * Duas camadas: "Mapa" (ruas — CARTO/OpenStreetMap) e "Satélite" (Esri).
+ * Duas camadas: "Mapa" (ruas — OpenStreetMap) e "Satélite" (Esri).
  * O mapa precisa de internet para baixar as imagens; o GPS não. Sem
  * sinal, as coordenadas continuam registradas e o mapa aparece quando a
  * conexão voltar (as imagens já vistas ficam guardadas no aparelho).
@@ -21,9 +21,9 @@ const MAPA = (function () {
 
   const CAMADAS = {
     mapa: {
-      url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-      opcoes: { subdomains: 'abcd', maxZoom: 19, crossOrigin: true,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>' }
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      opcoes: { maxZoom: 19, crossOrigin: true,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }
     },
     satelite: {
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -232,7 +232,7 @@ const MAPA = (function () {
     ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px, py - 26, 5, 0, Math.PI * 2); ctx.fill();
     // Atribuição
-    ctx.font = '11px Arial'; const atrib = opcoes.satelite ? '© Esri' : '© OpenStreetMap © CARTO';
+    ctx.font = '11px Arial'; const atrib = opcoes.satelite ? '© Esri' : '© OpenStreetMap';
     const lw = ctx.measureText(atrib).width + 10;
     ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(W - lw, H - 16, lw, 16);
     ctx.fillStyle = '#333'; ctx.fillText(atrib, W - lw + 5, H - 4.5);
