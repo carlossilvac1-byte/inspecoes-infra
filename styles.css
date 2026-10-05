@@ -1433,3 +1433,39 @@ input:disabled, select:disabled { background: #F4F7F9; color: #94A3B0; border-co
 .leaflet-popup-content { font-size: 13px; line-height: 1.4; }
 .leaflet-popup-content a { color: var(--primaria); font-weight: 700; }
 @media (max-width: 520px) { .mapa-painel { height: 300px; } .mapa { height: 230px; } }
+
+/* =====================================================================
+ * CHECKLIST SIM / NÃO / NA + EVIDÊNCIA DA NÃO CONFORMIDADE (v4.5.0)
+ * ===================================================================== */
+.sub-checklist .pergunta { flex-wrap: wrap; }
+.sim-nao { grid-template-columns: repeat(3, 1fr); width: 222px; }
+.sim-nao .bt-na:has(input:checked) { border-color: #7B8A97; background: #EEF2F5; color: #4A5A68; }
+.tabela-detalhe.tabela-checklist td.resp-na { color: #4A5A68; background: #EEF2F5; }
+.evid-nc { flex: 1 0 100%; margin-top: 4px; padding: 12px; border-radius: 12px; background: #FFF6F6; border: 1px solid #F0BDBD; }
+.evid-cab { display: flex; align-items: center; gap: 8px; color: #8E1C1C; margin-bottom: 8px; }
+.evid-cab svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.evid-cab b { font-size: 13.5px; }
+.evid-qtd { margin-left: auto; font-size: 12px; font-weight: 600; color: #8E1C1C; opacity: .8; }
+.evid-obs { min-height: 42px !important; font-size: 14.5px !important; background: #fff; }
+.evid-fotos { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+.evid-fotos:empty { display: none; }
+.evid-foto { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; border: 2px solid #F0BDBD; background: #fff; }
+.evid-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.evid-foto button { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; border-radius: 50%; border: 0;
+  background: rgba(15,34,51,.75); color: #fff; font-size: 12px; cursor: pointer; display: grid; place-items: center; }
+.evid-botoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.evid-botoes .btn { min-height: 42px; font-size: 14px; }
+.evid-botoes .btn-secundario { border-color: #E9A9A9; color: #B3261E; }
+.evid-botoes .btn-secundario:hover { background: #FDECEC; border-color: #C62828; }
+@media (max-width: 480px) { .sim-nao { width: 100%; } }
+
+/* Detalhe: não conformidades consolidadas */
+.nc-lista { display: grid; gap: 10px; }
+.nc-card { border: 1px solid #F0BDBD; border-left: 4px solid #C62828; border-radius: 12px; padding: 12px 14px; background: #FFFBFB; }
+.nc-card-cab { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.nc-num { background: #C62828; color: #fff; font-weight: 800; font-size: 12px; padding: 2px 8px; border-radius: 999px; }
+.nc-item { font-size: 12px; font-weight: 700; color: var(--texto-apoio); text-transform: uppercase; letter-spacing: .4px; }
+.nc-perg { margin: 4px 0; font-size: 15px; }
+.nc-perg b { color: #C62828; }
+.nc-obs { margin: 2px 0 8px; font-size: 14px; font-style: italic; color: #4A5A68; }
+.nc-card .galeria { margin-top: 8px; }

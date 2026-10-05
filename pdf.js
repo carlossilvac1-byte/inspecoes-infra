@@ -232,7 +232,7 @@ const PDFGEN = (function () {
     const texto = (valor === null || valor === undefined || valor === '') ? '—' : String(valor);
 
     doc.setFontSize(9.5);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('helvetica', destaque ? 'bold' : 'normal');   // mede com a mesma fonte que vai escrever
     const linhas = doc.splitTextToSize(texto, larguraVal - 6);
     const alt = Math.max(9, linhas.length * 4.6 + 4);
 
@@ -269,9 +269,10 @@ const PDFGEN = (function () {
     cor(doc, CONFIG.cores.borda, 'traco');
     doc.setLineWidth(0.2);
     doc.rect(M, y, larguraPerg, alt, 'D');
-    const ehNao = resposta === 'NÃO', ehSim = resposta === 'SIM';
+    const ehNao = resposta === 'NÃO', ehSim = resposta === 'SIM', ehNa = resposta === 'NA';
     if (ehNao) doc.setFillColor(253, 236, 236);
     else if (ehSim) doc.setFillColor(234, 244, 235);
+    else if (ehNa) doc.setFillColor(238, 242, 245);
     else doc.setFillColor(248, 249, 250);
     doc.rect(M + larguraPerg, y, larguraResp, alt, 'FD');
 
@@ -280,6 +281,7 @@ const PDFGEN = (function () {
     doc.setFont('helvetica', 'bold');
     if (ehNao) cor(doc, CONFIG.cores.naoConforme, 'texto');
     else if (ehSim) cor(doc, CONFIG.cores.conforme, 'texto');
+    else if (ehNa) doc.setTextColor(91, 107, 120);
     doc.text(resposta || '—', M + larguraPerg + larguraResp / 2, y + alt / 2 + 1.4, { align: 'center' });
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(20, 24, 31);
@@ -292,11 +294,90 @@ const PDFGEN = (function () {
       const lista = ck[item] || [];
       if (!lista.length) return;
       const nao = lista.filter(q => q.resposta === 'NÃO').length;
-      y = secaoBloco(doc, y + 2, 'Checklist — ' + item + '  (' + (lista.length - nao) +
-                     ' SIM · ' + nao + ' NÃO)', 16);
+      const na = lista.filter(q => q.resposta === 'NA').length;
+      y = secaoBloco(doc, y + 2, 'Checklist — ' + item + '  (' + (lista.length - nao - na) +
+                     ' SIM · ' + nao + ' NÃO' + (na ? ' · ' + na + ' NA' : '') + ')', 16);
       lista.forEach((q, k) => { y = linhaChecklist(doc, y, k + 1, q.pergunta, q.resposta); });
     });
     return y;
+  }
+
+  /**
+   * Não conformidades consolidadas: cada pergunta respondida com NÃO vira
+   * um bloco numerado (NC 1, NC 2…) com o item, a pergunta, a descrição
+   * e as fotos de evidência vinculadas a ela.
+   */
+  async function blocoNaoConformidades(doc, y, reg, fotos) {
+    const ck = reg.checklist || {};
+    const ncs = [];
+    Object.keys(ck).forEach(item => (ck[item] || []).forEach(q => { if (q.resposta === 'NÃO') ncs.push({ item: item, q: q }); }));
+    if (!ncs.length) return y;
+    const colLarg = (LARG - 8 - 6) / 2, imgAlt = 48;
+    // Mede cada bloco antes de desenhar: o cabeçalho da NC nunca fica
+    // separado da primeira linha de fotos, nem o título da seção da NC 1.
+    const medir = n => {
+      const fs = fotos.filter(f => f.vinculo && f.vinculo.item === n.item && f.vinculo.pergunta === n.q.pergunta);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      const linhasPerg = doc.splitTextToSize(n.q.pergunta, LARG - 30);
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(8.6);
+      const linhasObs = n.q.obs ? doc.splitTextToSize('Descrição: ' + n.q.obs, LARG - 12) : [];
+      const altTexto = 9 + linhasPerg.length * 4.3 + (linhasObs.length ? linhasObs.length * 4.2 + 2 : 0);
+      const altCab = altTexto + 3 + (fs.length ? imgAlt + 7 : 6);
+      return { fs, linhasPerg, linhasObs, altTexto, altCab };
+    };
+    y = secaoBloco(doc, y + 2, 'Não conformidades identificadas (' + ncs.length + ')', medir(ncs[0]).altCab + 1);
+    for (let k = 0; k < ncs.length; k++) {
+      const n = ncs[k];
+      const { fs, linhasPerg, linhasObs, altTexto, altCab } = medir(n);
+      y = novaPaginaSePreciso(doc, y + 1, altCab);
+      // Cabeçalho do bloco
+      doc.setFillColor(253, 236, 236); cor(doc, '#F0BDBD', 'traco'); doc.setLineWidth(0.3);
+      doc.rect(M, y, LARG, altTexto, 'FD');
+      cor(doc, CONFIG.cores.naoConforme, 'preenchimento'); doc.rect(M, y, 1.6, altTexto, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); cor(doc, CONFIG.cores.naoConforme, 'texto');
+      doc.text('NC ' + (k + 1), M + 4.5, y + 5.6);
+      doc.setTextColor(90, 102, 114); doc.setFontSize(8.5);
+      doc.text(n.item.toUpperCase(), M + 18, y + 5.6);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(20, 24, 31);
+      doc.text(linhasPerg, M + 4.5, y + 10.6);
+      doc.setFont('helvetica', 'bold'); cor(doc, CONFIG.cores.naoConforme, 'texto');
+      doc.text('NÃO', M + LARG - 4, y + 10.6, { align: 'right' });
+      let yy = y + 10.6 + linhasPerg.length * 4.3;
+      if (linhasObs.length) {
+        doc.setFont('helvetica', 'italic'); doc.setFontSize(8.6); doc.setTextColor(60, 70, 80);
+        doc.text(linhasObs, M + 4.5, yy + 1); yy += linhasObs.length * 4.2 + 2;
+      }
+      y += altTexto + 3;
+      if (!fs.length) {
+        doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(120, 130, 140);
+        doc.text('Sem foto de evidência vinculada.', M + 4.5, y + 2); doc.setTextColor(20, 24, 31);
+        y += 6;
+        continue;
+      }
+      for (let i = 0; i < fs.length; i += 2) {
+        y = novaPaginaSePreciso(doc, y, imgAlt + 8);
+        for (let j = 0; j < 2 && i + j < fs.length; j++) {
+          const f = fs[i + j];
+          const x = M + 3 + j * (colLarg + 8);
+          try {
+            const dataUrl = await DB.blobParaDataUrl(f.blob);
+            const prop = (f.largura && f.altura) ? f.largura / f.altura : 4 / 3;
+            let w = colLarg, h = w / prop;
+            if (h > imgAlt) { h = imgAlt; w = h * prop; }
+            const offX = x + (colLarg - w) / 2;
+            doc.addImage(dataUrl, 'JPEG', offX, y, w, h, undefined, 'FAST');
+            cor(doc, '#F0BDBD', 'traco'); doc.setLineWidth(0.4); doc.rect(offX, y, w, h, 'D');
+          } catch (e) {
+            doc.setFontSize(8); doc.text('(falha ao renderizar a foto)', x + 3, y + imgAlt / 2);
+          }
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(120, 130, 140);
+          doc.text('Evidência NC ' + (k + 1) + '.' + (i + j + 1) + (f.legenda ? ' — ' + f.legenda : ''), x, y + imgAlt + 3.8);
+          doc.setTextColor(20, 24, 31);
+        }
+        y += imgAlt + 7;
+      }
+    }
+    return y + 2;
   }
 
   async function galeria(doc, y, fotos) {
@@ -306,7 +387,7 @@ const PDFGEN = (function () {
     const blocoAlt = imgAlt + 12;
 
     if (y + 12 + blocoAlt + 4 > LIMITE_INFERIOR) { doc.addPage(); y = TOPO_CONTEUDO; }
-    y = secao(doc, y, 'Registro fotográfico (' + fotos.length + ')');
+    y = secao(doc, y, 'Registro fotográfico geral (' + fotos.length + ')');
 
     for (let i = 0; i < fotos.length; i += 2) {
       y = novaPaginaSePreciso(doc, y, blocoAlt + 4);
@@ -331,7 +412,7 @@ const PDFGEN = (function () {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         cor(doc, CONFIG.cores.textoApoio, 'texto');
-        const leg = 'Foto ' + f.ordem + (f.legenda ? ' — ' + f.legenda : '');
+        const leg = 'Foto ' + (i + j + 1) + (f.legenda ? ' — ' + f.legenda : '');
         doc.text(doc.splitTextToSize(leg, colLarg)[0], x, y + imgAlt + 5);
         doc.setTextColor(20, 24, 31);
       }
@@ -356,6 +437,7 @@ const PDFGEN = (function () {
     y = linha(doc, y, 'Observações', reg.observacoes);
 
     y = blocoChecklist(doc, y, reg);
+    y = await blocoNaoConformidades(doc, y, reg, fotos);
 
     y = secao(doc, y + 2, 'Registro');
     y = linha(doc, y, 'Coordenadas',
@@ -385,7 +467,7 @@ const PDFGEN = (function () {
     if ((reg.versao || 1) > 1) y = linha(doc, y, 'Última edição', dataBR(reg.atualizadoEm));
     if (reg.excluido) y = linha(doc, y, 'Registro excluído em', dataBR(reg.excluidoEm), true);
 
-    y = await galeria(doc, y + 2, fotos);
+    y = await galeria(doc, y + 2, fotos.filter(f => !f.vinculo));
     return y;
   }
 

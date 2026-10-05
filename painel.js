@@ -184,7 +184,7 @@ const PAINEL = (function () {
     noPeriodo.forEach(r => {
       const ck = r.checklist || {};
       Object.keys(ck).forEach(item => (ck[item] || []).forEach(q => {
-        if (!q.resposta) return;
+        if (!q.resposta || q.resposta === 'NA') return;     // NA = não se aplica: fora da conta
         respTotal++;
         if (q.resposta === 'SIM') respSim++;
         else {

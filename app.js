@@ -664,28 +664,51 @@ const APP = (function () {
         sub.className = 'sub-checklist';
         sub.dataset.item = item;
         sub.hidden = true;
-        const anteriores = {};
-        (respostas[item] || []).forEach(r => { anteriores[r.pergunta] = r.resposta; });
+        const anteriores = {}, obsAnteriores = {};
+        (respostas[item] || []).forEach(r => { anteriores[r.pergunta] = r.resposta; obsAnteriores[r.pergunta] = r.obs || ''; });
         perguntas.forEach((perg, k) => {
           const nome = 'ck-' + i + '-' + k;
           const resp = anteriores[perg] || '';
           const div = document.createElement('div');
-          div.className = 'pergunta' + (resp === 'NÃO' ? ' resp-nao' : resp === 'SIM' ? ' resp-sim' : '');
+          div.className = 'pergunta' + (resp === 'NÃO' ? ' resp-nao' : resp === 'SIM' ? ' resp-sim' : resp === 'NA' ? ' resp-na' : '');
           div.dataset.pergunta = perg;
+          div.dataset.item = item;
+          const opcao = (cls, valor, rotulo, titulo) =>
+            '<label class="' + cls + '" title="' + titulo + '"><input type="radio" name="' + nome + '" value="' + valor + '"' +
+            (resp === valor ? ' checked' : '') + '><span>' + rotulo + '</span></label>';
           div.innerHTML =
             '<p><b>' + (k + 1) + '.</b> ' + escapar(perg) + '</p>' +
             '<div class="sim-nao">' +
-              '<label class="bt-sim"><input type="radio" name="' + nome + '" value="SIM"' +
-                (resp === 'SIM' ? ' checked' : '') + '><span>SIM</span></label>' +
-              '<label class="bt-nao"><input type="radio" name="' + nome + '" value="NÃO"' +
-                (resp === 'NÃO' ? ' checked' : '') + '><span>NÃO</span></label>' +
+              opcao('bt-sim', 'SIM', 'SIM', 'Conforme') +
+              opcao('bt-nao', 'NÃO', 'NÃO', 'Não conforme') +
+              opcao('bt-na', 'NA', 'NA', 'Não se aplica') +
+            '</div>' +
+            // Evidência da não conformidade: aparece ao responder NÃO
+            '<div class="evid-nc"' + (resp === 'NÃO' ? '' : ' hidden') + '>' +
+              '<div class="evid-cab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>' +
+                '<b>Evidência da não conformidade</b><small class="evid-qtd"></small></div>' +
+              '<input type="text" class="evid-obs" maxlength="300" placeholder="Descreva o que foi encontrado (opcional)" value="' + escapar(obsAnteriores[perg] || '') + '">' +
+              '<div class="evid-fotos"></div>' +
+              '<div class="evid-botoes">' +
+                '<button type="button" class="btn btn-secundario" data-evid="camera">Tirar foto</button>' +
+                '<button type="button" class="btn btn-neutro" data-evid="galeria">Da galeria</button>' +
+              '</div>' +
             '</div>';
-          div.querySelectorAll('input').forEach(rd => rd.addEventListener('change', () => {
+          div.querySelectorAll('.sim-nao input').forEach(rd => rd.addEventListener('change', async () => {
+            const eraNao = div.classList.contains('resp-nao');
             div.classList.toggle('resp-sim', rd.value === 'SIM');
             div.classList.toggle('resp-nao', rd.value === 'NÃO');
+            div.classList.toggle('resp-na', rd.value === 'NA');
             div.classList.remove('sem-resposta');
+            div.querySelector('.evid-nc').hidden = rd.value !== 'NÃO';
+            if (eraNao && rd.value !== 'NÃO') await liberarFotosNC(item, perg);
             atualizarContadorChecklist(item);
             sincronizarNCComChecklist();
+            if (rd.value === 'NÃO') div.querySelector('.evid-nc').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }));
+          div.querySelectorAll('[data-evid]').forEach(bt => bt.addEventListener('click', () => {
+            estado.ncAlvo = { item: item, pergunta: perg };
+            $(bt.dataset.evid === 'camera' ? '#f-nc-camera' : '#f-nc-galeria').click();
           }));
           sub.appendChild(div);
         });
@@ -704,10 +727,14 @@ const APP = (function () {
           if (inp.checked) {
             sub.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           } else {
-            // Desmarcou o item: descarta as respostas dele
-            sub.querySelectorAll('input').forEach(r => { r.checked = false; });
-            sub.querySelectorAll('.pergunta').forEach(p =>
-              p.classList.remove('resp-sim', 'resp-nao', 'sem-resposta'));
+            // Desmarcou o item: descarta as respostas dele (fotos vinculadas
+            // voltam para as fotos gerais — nada é apagado sem perguntar)
+            sub.querySelectorAll('.pergunta').forEach(p => {
+              if (p.classList.contains('resp-nao')) liberarFotosNC(item, p.dataset.pergunta);
+              p.classList.remove('resp-sim', 'resp-nao', 'resp-na', 'sem-resposta');
+              p.querySelector('.evid-nc').hidden = true;
+            });
+            sub.querySelectorAll('.sim-nao input').forEach(r => { r.checked = false; });
           }
           atualizarContadorChecklist(item);
           sincronizarNCComChecklist();
@@ -737,8 +764,11 @@ const APP = (function () {
       const item = sub.dataset.item;
       if (marcados.indexOf(item) === -1) return;
       saida[item] = Array.from(sub.querySelectorAll('.pergunta')).map(p => {
-        const r = p.querySelector('input:checked');
-        return { pergunta: p.dataset.pergunta, resposta: r ? r.value : '' };
+        const r = p.querySelector('.sim-nao input:checked');
+        const q = { pergunta: p.dataset.pergunta, resposta: r ? r.value : '' };
+        const obs = p.querySelector('.evid-obs').value.trim();
+        if (q.resposta === 'NÃO' && obs) q.obs = obs;
+        return q;
       });
     });
     return saida;
@@ -751,7 +781,7 @@ const APP = (function () {
     if (!sub || !tag) return;
     if (sub.hidden) { tag.textContent = ''; tag.className = 'cont-check'; return; }
     const total = Array.from(sub.querySelectorAll('.pergunta')).length;
-    const resp = Array.from(sub.querySelectorAll('input:checked'));
+    const resp = Array.from(sub.querySelectorAll('.sim-nao input:checked'));
     const nao = resp.filter(r => r.value === 'NÃO').length;
     tag.textContent = resp.length + '/' + total + ' respondidas' + (nao ? ' · ' + nao + ' NÃO' : '');
     tag.className = 'cont-check' + (nao ? ' tem-nao' : (resp.length === total ? ' completo' : ''));
@@ -762,7 +792,7 @@ const APP = (function () {
     const r = respostasChecklist();
     const linhas = [];
     Object.keys(r).forEach(item => r[item].forEach(q => {
-      if (q.resposta === 'NÃO') linhas.push('• ' + item + ' — ' + q.pergunta + ' NÃO');
+      if (q.resposta === 'NÃO') linhas.push('• ' + item + ' — ' + q.pergunta + ' NÃO' + (q.obs ? ' (' + q.obs + ')' : ''));
     }));
     return linhas.join('\n');
   }
@@ -895,13 +925,13 @@ const APP = (function () {
     $$('#f-inspecionado .sub-checklist').forEach(sub => {
       if (sub.hidden) return;
       Array.from(sub.querySelectorAll('.pergunta')).forEach(p => {
-        const r = p.querySelector('input:checked');
+        const r = p.querySelector('.sim-nao input:checked');
         if (!r) { semResposta++; p.classList.add('sem-resposta'); }
         else if (r.value === 'NÃO') temNao = true;
       });
     });
     if (semResposta) {
-      marcarErro('f-inspecionado', 'Responda SIM ou NÃO em todas as perguntas (' +
+      marcarErro('f-inspecionado', 'Responda SIM, NÃO ou NA em todas as perguntas (' +
         semResposta + ' sem resposta).');
       erros.push('Checklist (' + semResposta + ' pergunta(s) sem resposta)');
     }
@@ -1076,7 +1106,7 @@ const APP = (function () {
   /* ---------------------------------------------------------------
    * Fotos
    * ------------------------------------------------------------- */
-  async function adicionarArquivos(lista) {
+  async function adicionarArquivos(lista, vinculo) {
     if (!lista || !lista.length) return;
     const arquivos = Array.prototype.slice.call(lista);
     carregando(true, 'Otimizando ' + arquivos.length + ' foto(s)…');
@@ -1084,7 +1114,7 @@ const APP = (function () {
     for (const arq of arquivos) {
       try {
         if (!/^image\//.test(arq.type)) { falhas++; continue; }
-        await DB.adicionarFoto(estado.registro.id, arq, '');
+        await DB.adicionarFoto(estado.registro.id, arq, '', vinculo || null);
         ok++;
       } catch (e) {
         falhas++;
@@ -1103,8 +1133,12 @@ const APP = (function () {
     const cont = $('#grade-fotos');
     cont.innerHTML = '';
     if (!estado.registro) return;
-    const fotos = await DB.listarFotos(estado.registro.id);
-    $('#contador-fotos').textContent = '(' + fotos.length + '/' + CONFIG.limites.maxFotos + ')';
+    const todas = await DB.listarFotos(estado.registro.id);
+    const fotos = todas.filter(f => !f.vinculo);
+    const vinculadas = todas.length - fotos.length;
+    $('#contador-fotos').textContent = '(' + todas.length + '/' + CONFIG.limites.maxFotos +
+      (vinculadas ? ' • ' + vinculadas + ' em não conformidades' : '') + ')';
+    desenharFotosNC(todas);
 
     for (const f of fotos) {
       const div = document.createElement('div');
@@ -1131,6 +1165,42 @@ const APP = (function () {
       });
       cont.appendChild(div);
     }
+  }
+
+  /** Miniaturas das fotos vinculadas a cada pergunta respondida com NÃO. */
+  function desenharFotosNC(todas) {
+    $$('#f-inspecionado .pergunta').forEach(p => {
+      const cont = p.querySelector('.evid-fotos');
+      if (!cont) return;
+      const doTema = todas.filter(f => f.vinculo && f.vinculo.item === p.dataset.item && f.vinculo.pergunta === p.dataset.pergunta);
+      cont.innerHTML = '';
+      p.querySelector('.evid-qtd').textContent = doTema.length ? doTema.length + ' foto(s)' : 'nenhuma foto';
+      doTema.forEach(f => {
+        const fig = document.createElement('div');
+        fig.className = 'evid-foto';
+        const url = URL.createObjectURL(f.blob);
+        fig.innerHTML = '<img src="' + url + '" alt="Evidência"><button type="button" aria-label="Excluir foto">✕</button>';
+        fig.querySelector('img').onload = () => URL.revokeObjectURL(url);
+        fig.querySelector('button').addEventListener('click', async () => {
+          const c = await confirmar('Excluir foto?', 'A foto desta não conformidade será removida.', false, 'Excluir');
+          if (!c.ok) return;
+          await DB.removerFoto(f.id);
+          await desenharFotos();
+        });
+        cont.appendChild(fig);
+      });
+    });
+  }
+
+  /** Pergunta deixou de ser NÃO: as fotos dela passam para as fotos gerais. */
+  async function liberarFotosNC(item, pergunta) {
+    if (!estado.registro) return;
+    const fotos = (await DB.listarFotos(estado.registro.id))
+      .filter(f => f.vinculo && f.vinculo.item === item && f.vinculo.pergunta === pergunta);
+    if (!fotos.length) return;
+    for (const f of fotos) await DB.vincularFoto(f.id, null);
+    aviso(fotos.length + ' foto(s) dessa pergunta foram movidas para as fotos gerais da inspeção.', 'alerta', 6);
+    await desenharFotos();
   }
 
   /* ===================================================================
@@ -1310,22 +1380,40 @@ const APP = (function () {
       const lista = ck[item] || [];
       if (!lista.length) return;
       const nao = lista.filter(q => q.resposta === 'NÃO').length;
+      const na = lista.filter(q => q.resposta === 'NA').length;
       html += '<h2 style="margin-top:18px">Checklist — ' + escapar(item) +
-              ' <small class="apoio">(' + (lista.length - nao) + ' SIM · ' + nao + ' NÃO)</small></h2>';
+              ' <small class="apoio">(' + (lista.length - nao - na) + ' SIM · ' + nao + ' NÃO' + (na ? ' · ' + na + ' NA' : '') + ')</small></h2>';
       html += '<table class="tabela-detalhe tabela-checklist"><tbody>';
       lista.forEach((q, k) => {
-        const cls = q.resposta === 'NÃO' ? 'resp-nao' : (q.resposta === 'SIM' ? 'resp-sim' : '');
+        const cls = q.resposta === 'NÃO' ? 'resp-nao' : (q.resposta === 'SIM' ? 'resp-sim' : (q.resposta === 'NA' ? 'resp-na' : ''));
         html += '<tr><th>' + (k + 1) + '. ' + escapar(q.pergunta) + '</th>' +
                 '<td class="' + cls + '">' + escapar(q.resposta || '—') + '</td></tr>';
       });
       html += '</tbody></table>';
     });
 
-    html += '<h2 style="margin-top:18px">Fotos (' + fotos.length + ')</h2>';
-    if (!fotos.length) html += '<p class="apoio pequena">Nenhuma foto anexada.</p>';
+    // Não conformidades consolidadas, cada uma com as suas fotos
+    const ncs = [];
+    Object.keys(ck).forEach(item => (ck[item] || []).forEach(q => { if (q.resposta === 'NÃO') ncs.push({ item: item, q: q }); }));
+    if (ncs.length) {
+      html += '<h2 style="margin-top:18px">Não conformidades identificadas (' + ncs.length + ')</h2><div class="nc-lista">';
+      ncs.forEach((n, k) => {
+        const fs = fotos.filter(f => f.vinculo && f.vinculo.item === n.item && f.vinculo.pergunta === n.q.pergunta);
+        html += '<div class="nc-card"><div class="nc-card-cab"><span class="nc-num">NC ' + (k + 1) + '</span>' +
+          '<span class="nc-item">' + escapar(n.item) + '</span></div>' +
+          '<p class="nc-perg">' + escapar(n.q.pergunta) + ' <b>NÃO</b></p>' +
+          (n.q.obs ? '<p class="nc-obs">' + escapar(n.q.obs) + '</p>' : '') +
+          (fs.length ? '<div class="galeria">' + fs.map(f => '<figure><img src="' + URL.createObjectURL(f.blob) + '" alt="Evidência"></figure>').join('') + '</div>'
+                     : '<p class="apoio pequena">Sem foto vinculada.</p>') + '</div>';
+      });
+      html += '</div>';
+    }
+    const fotosGerais = fotos.filter(f => !f.vinculo);
+    html += '<h2 style="margin-top:18px">Fotos gerais (' + fotosGerais.length + ')</h2>';
+    if (!fotosGerais.length) html += '<p class="apoio pequena">Nenhuma foto geral anexada.</p>';
     else {
       html += '<div class="galeria">';
-      fotos.forEach(f => {
+      fotosGerais.forEach(f => {
         const url = URL.createObjectURL(f.blob);
         html += '<figure><img src="' + url + '" alt="Foto ' + f.ordem + '">' +
                 '<figcaption>Foto ' + f.ordem + (f.legenda ? ' — ' + escapar(f.legenda) : '') +
@@ -1342,12 +1430,12 @@ const APP = (function () {
     html += '</div>';
 
     if (r.latitude !== null && r.longitude !== null && r.latitude !== undefined) {
-      html = html.replace('<h2 style="margin-top:18px">Fotos', '<h2 style="margin-top:18px">Localização</h2>' +
+      html = html.replace('<h2 style="margin-top:18px">Fotos gerais', '<h2 style="margin-top:18px">Localização</h2>' +
         '<div class="mapa-box"><div id="mapa-detalhe" class="mapa"></div>' +
         '<div class="mapa-offline" hidden>Sem internet: o mapa aparece quando a conexão voltar.</div></div>' +
         '<a class="btn btn-secundario btn-mapa-google" target="_blank" rel="noopener" href="' +
         MAPA.linkGoogle(r.latitude, r.longitude) + '">Abrir no Google Maps</a>' +
-        '<h2 style="margin-top:18px">Fotos');
+        '<h2 style="margin-top:18px">Fotos gerais');
     }
     $('#detalhe-conteudo').innerHTML = html;
     mostrarTela('tela-detalhe');
@@ -1947,6 +2035,11 @@ const APP = (function () {
     $('#btn-cancelar').addEventListener('click', cancelarFormulario);
     $('#f-camera').addEventListener('change', e => { adicionarArquivos(e.target.files); e.target.value = ''; });
     $('#f-galeria').addEventListener('change', e => { adicionarArquivos(e.target.files); e.target.value = ''; });
+    ['#f-nc-camera', '#f-nc-galeria'].forEach(sel => $(sel).addEventListener('change', e => {
+      const alvo = estado.ncAlvo; estado.ncAlvo = null;
+      adicionarArquivos(e.target.files, alvo ? { item: alvo.item, pergunta: alvo.pergunta } : null);
+      e.target.value = '';
+    }));
     $('#btn-geo').addEventListener('click', async () => {
       $('#txt-geo').textContent = 'Capturando…';
       const g = await DB.obterGeolocalizacao();

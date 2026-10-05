@@ -523,7 +523,8 @@ const DB = (function () {
       ordem: meta.ordem || 0,
       criadoEm: agora(),
       enviada: 1,
-      caminhoRemoto: meta.caminho
+      caminhoRemoto: meta.caminho,
+      vinculo: meta.vinculo || null
     });
   }
 
@@ -629,7 +630,11 @@ const DB = (function () {
   // ---------------------------------------------------------------
   // Fotos
   // ---------------------------------------------------------------
-  async function adicionarFoto(inspecaoId, arquivo, legenda) {
+  /**
+   * @param {object} [vinculo] { item, pergunta } — foto de evidência de uma
+   *        pergunta do checklist respondida com NÃO (null = foto geral).
+   */
+  async function adicionarFoto(inspecaoId, arquivo, legenda, vinculo) {
     const qtd = await db.fotos.where('inspecaoId').equals(inspecaoId).count();
     if (qtd >= CONFIG.limites.maxFotos) {
       throw new Error('Limite de ' + CONFIG.limites.maxFotos + ' fotos por inspeção atingido.');
@@ -646,10 +651,16 @@ const DB = (function () {
       bytes: comp.bytes,
       ordem: qtd + 1,
       criadoEm: agora(),
-      enviada: 0
+      enviada: 0,
+      vinculo: vinculo || null
     };
     await db.fotos.add(foto);
     return foto;
+  }
+
+  /** Liga / desliga a foto de uma não conformidade (null = foto geral). */
+  async function vincularFoto(fotoId, vinculo) {
+    await db.fotos.update(fotoId, { vinculo: vinculo || null });
   }
 
   async function listarFotos(inspecaoId) {
@@ -901,6 +912,7 @@ const DB = (function () {
     excluirInspecao: excluirInspecao,
     restaurarInspecao: restaurarInspecao,
     adicionarFoto: adicionarFoto,
+    vincularFoto: vincularFoto,
     listarFotos: listarFotos,
     removerFoto: removerFoto,
     removerFotosDaInspecao: removerFotosDaInspecao,

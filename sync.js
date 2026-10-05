@@ -66,7 +66,7 @@ const SYNC = (function () {
       const caminho = reg.lote + '/' + reg.id + '/' + nome;
       // Foto que veio da base (já existe lá): só repete os metadados.
       if (f.caminhoRemoto) {
-        meta.push({ caminho: f.caminhoRemoto, legenda: f.legenda || '', ordem: f.ordem, bytes: f.bytes || 0 });
+        meta.push({ caminho: f.caminhoRemoto, legenda: f.legenda || '', ordem: f.ordem, bytes: f.bytes || 0, vinculo: f.vinculo || null });
         continue;
       }
       const url = base() + '/storage/v1/object/' + S().bucketFotos + '/' +
@@ -82,7 +82,7 @@ const SYNC = (function () {
         }
         throw new Error('Falha ao enviar foto (HTTP ' + r.status + ').');
       }
-      meta.push({ caminho: caminho, legenda: f.legenda || '', ordem: f.ordem, bytes: f.bytes || 0 });
+      meta.push({ caminho: caminho, legenda: f.legenda || '', ordem: f.ordem, bytes: f.bytes || 0, vinculo: f.vinculo || null });
     }
     return meta;
   }
