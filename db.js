@@ -234,6 +234,7 @@ const DB = (function () {
 
     let qualidade = L.fotoQualidadeInicial;
     let blob = await paraBlob(canvas, qualidade);
+    if (!blob) throw new Error('O aparelho não conseguiu processar esta foto. Tente novamente.');
     while (blob.size > L.fotoAlvoBytes && qualidade > L.fotoQualidadeMinima) {
       qualidade = Math.max(L.fotoQualidadeMinima, qualidade - 0.10);
       blob = await paraBlob(canvas, qualidade);
@@ -251,9 +252,82 @@ const DB = (function () {
 
   function paraBlob(canvas, qualidade) {
     return new Promise((ok) => {
-      if (canvas.toBlob) canvas.toBlob(b => ok(b), 'image/jpeg', qualidade);
-      else ok(dataUrlParaBlob(canvas.toDataURL('image/jpeg', qualidade)));
+      const viaDataUrl = () => {
+        try { ok(dataUrlParaBlob(canvas.toDataURL('image/jpeg', qualidade))); } catch (e) { ok(null); }
+      };
+      // No iPhone o toBlob pode devolver null (memória): cai no toDataURL.
+      if (canvas.toBlob) canvas.toBlob(b => (b && b.size ? ok(b) : viaDataUrl()), 'image/jpeg', qualidade);
+      else viaDataUrl();
     });
+  }
+
+  /* ---------------------------------------------------------------
+   * Armazenamento seguro das fotos
+   * ---------------------------------------------------------------
+   * O Safari do iPhone tem um defeito conhecido: um Blob gravado no
+   * IndexedDB pode ficar ILEGÍVEL depois que o app recarrega (o registro
+   * existe, mas o conteúdo some — imagem quebrada, PDF sem foto e envio
+   * que falha). Por isso a foto é gravada como BYTES (ArrayBuffer), que o
+   * iOS preserva, e o Blob é recriado na memória a cada leitura.
+   * ------------------------------------------------------------- */
+  async function lerBytes(blob) {
+    if (!blob) throw new Error('Foto vazia.');
+    if (blob.arrayBuffer) return await blob.arrayBuffer();
+    return await new Promise((ok, erro) => {
+      const fr = new FileReader();
+      fr.onload = () => ok(fr.result);
+      fr.onerror = () => erro(fr.error || new Error('Falha ao ler a foto.'));
+      fr.readAsArrayBuffer(blob);
+    });
+  }
+
+  /** Confere se os bytes são de uma imagem de verdade (JPEG, PNG ou WebP). */
+  function imagemValida(bytes) {
+    if (!bytes || bytes.byteLength < 200) return false;
+    const b = new Uint8Array(bytes, 0, 12);
+    const jpeg = b[0] === 0xFF && b[1] === 0xD8;
+    const png = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47;
+    const webp = b[0] === 0x52 && b[1] === 0x49 && b[8] === 0x57 && b[9] === 0x45;
+    return jpeg || png || webp;
+  }
+
+  function tipoDosBytes(bytes) {
+    const b = new Uint8Array(bytes, 0, 4);
+    if (b[0] === 0x89) return 'image/png';
+    if (b[0] === 0x52) return 'image/webp';
+    return 'image/jpeg';
+  }
+
+  /** Devolve a foto pronta para uso: .blob recriado dos bytes, ou .indisponivel. */
+  function prepararFoto(f) {
+    if (f.dados && f.dados.byteLength) {
+      f.blob = new Blob([f.dados], { type: f.tipo || 'image/jpeg' });
+      f.indisponivel = false;
+    } else {
+      f.blob = null;
+      f.indisponivel = true;
+    }
+    return f;
+  }
+
+  /**
+   * Converte registros antigos (Blob) para bytes. Se o Blob já estiver
+   * ilegível, a foto fica marcada como indisponível — e, se já tiver sido
+   * enviada, é baixada de novo da base central.
+   */
+  async function migrarFoto(f) {
+    if (f.dados || f.corrompida) return f;
+    let dados = null;
+    try {
+      const b = await lerBytes(f.blob);
+      if (imagemValida(b)) dados = b;
+    } catch (e) { /* Blob perdido pelo iOS */ }
+    const mud = dados ? { dados: dados, tipo: tipoDosBytes(dados), blob: undefined, bytes: dados.byteLength }
+                      : { corrompida: 1, blob: undefined };
+    try { await db.fotos.update(f.id, mud); } catch (e) { /* segue com a cópia em memória */ }
+    Object.assign(f, mud);
+    delete f.blob;
+    return f;
   }
 
   function dataUrlParaBlob(dataUrl) {
@@ -506,26 +580,33 @@ const DB = (function () {
 
   /** Foto baixada da base para uma inspeção recebida. */
   async function salvarFotoRecebida(inspecaoId, meta, blob) {
+    const dados = await lerBytes(blob);
+    if (!imagemValida(dados)) throw new Error('Arquivo recebido não é uma imagem válida.');
     let largura = 0, altura = 0;
     try {
-      const bmp = await createImageBitmap(blob);
+      const bmp = await createImageBitmap(new Blob([dados], { type: tipoDosBytes(dados) }));
       largura = bmp.width; altura = bmp.height;
       if (bmp.close) bmp.close();
     } catch (e) { /* dimensões são opcionais */ }
-    await db.fotos.put({
+    // Foto local danificada com o mesmo caminho: recupera no mesmo registro
+    // (mantém id, ordem, legenda e vínculo com a não conformidade).
+    const existentes = await db.fotos.where('inspecaoId').equals(inspecaoId).toArray();
+    const local = existentes.find(f => f.caminhoRemoto && f.caminhoRemoto === meta.caminho);
+    const comum = {
+      dados: dados, tipo: tipoDosBytes(dados), blob: undefined, corrompida: undefined,
+      largura: largura || (local && local.largura) || 0, altura: altura || (local && local.altura) || 0,
+      bytes: dados.byteLength, enviada: 1, caminhoRemoto: meta.caminho
+    };
+    if (local) { await db.fotos.update(local.id, comum); return; }
+    await db.fotos.put(Object.assign({
       id: 'r-' + inspecaoId.slice(0, 8) + '-' + (meta.ordem || 0),
       inspecaoId: inspecaoId,
-      blob: blob,
       legenda: meta.legenda || '',
       nome: String(meta.caminho || '').split('/').pop(),
-      largura: largura, altura: altura,
-      bytes: blob.size,
       ordem: meta.ordem || 0,
       criadoEm: agora(),
-      enviada: 1,
-      caminhoRemoto: meta.caminho,
       vinculo: meta.vinculo || null
-    });
+    }, comum, { blob: undefined, corrompida: undefined }));
   }
 
   async function marcarFotoRemota(fotoId, caminho) {
@@ -640,22 +721,31 @@ const DB = (function () {
       throw new Error('Limite de ' + CONFIG.limites.maxFotos + ' fotos por inspeção atingido.');
     }
     const comp = await comprimirImagem(arquivo);
+    const dados = await lerBytes(comp.blob);
+    if (!imagemValida(dados)) throw new Error('A foto não pôde ser processada. Tire novamente.');
     const foto = {
       id: uuid(),
       inspecaoId: inspecaoId,
-      blob: comp.blob,
+      dados: dados,
+      tipo: 'image/jpeg',
       legenda: legenda || '',
       nome: 'foto_' + (qtd + 1) + '.jpg',
       largura: comp.largura,
       altura: comp.altura,
-      bytes: comp.bytes,
+      bytes: dados.byteLength,
       ordem: qtd + 1,
       criadoEm: agora(),
       enviada: 0,
       vinculo: vinculo || null
     };
     await db.fotos.add(foto);
-    return foto;
+    // Releitura imediata: garante que o aparelho gravou a foto inteira.
+    const conf = await db.fotos.get(foto.id);
+    if (!conf || !conf.dados || conf.dados.byteLength !== dados.byteLength) {
+      await db.fotos.delete(foto.id).catch(() => {});
+      throw new Error('O aparelho não conseguiu salvar a foto (armazenamento cheio?). Tente novamente.');
+    }
+    return prepararFoto(foto);
   }
 
   /** Liga / desliga a foto de uma não conformidade (null = foto geral). */
@@ -665,6 +755,8 @@ const DB = (function () {
 
   async function listarFotos(inspecaoId) {
     const fotos = await db.fotos.where('inspecaoId').equals(inspecaoId).toArray();
+    for (const f of fotos) await migrarFoto(f);
+    fotos.forEach(prepararFoto);
     fotos.sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
     return fotos;
   }
@@ -800,7 +892,7 @@ const DB = (function () {
       for (const f of fotos) {
         const meta = { id: f.id, nome: f.nome, legenda: f.legenda,
                        bytes: f.bytes, largura: f.largura, altura: f.altura };
-        if (comFotos !== false) meta.base64 = await blobParaBase64(f.blob);
+        if (comFotos !== false && f.blob) meta.base64 = await blobParaBase64(f.blob);
         item.fotos.push(meta);
       }
       saida.inspecoes.push(item);
@@ -905,6 +997,8 @@ const DB = (function () {
     salvarRecebida: salvarRecebida,
     salvarFotoRecebida: salvarFotoRecebida,
     marcarFotoRemota: marcarFotoRemota,
+    imagemValida: imagemValida,
+    lerBytes: lerBytes,
     podeVer: podeVer,
     ehMeu: ehMeu,
     obterInspecao: obterInspecao,

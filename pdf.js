@@ -359,16 +359,17 @@ const PDFGEN = (function () {
         for (let j = 0; j < 2 && i + j < fs.length; j++) {
           const f = fs[i + j];
           const x = M + 3 + j * (colLarg + 8);
+          const prop = (f.largura && f.altura) ? f.largura / f.altura : 4 / 3;
+          let w = colLarg, h = w / prop;
+          if (h > imgAlt) { h = imgAlt; w = h * prop; }
+          const offX = x + (colLarg - w) / 2;
           try {
+            if (!f.blob) throw new Error('indisponível');
             const dataUrl = await DB.blobParaDataUrl(f.blob);
-            const prop = (f.largura && f.altura) ? f.largura / f.altura : 4 / 3;
-            let w = colLarg, h = w / prop;
-            if (h > imgAlt) { h = imgAlt; w = h * prop; }
-            const offX = x + (colLarg - w) / 2;
-            doc.addImage(dataUrl, 'JPEG', offX, y, w, h, undefined, 'FAST');
+            doc.addImage(dataUrl, formatoImagem(dataUrl), offX, y, w, h, undefined, 'FAST');
             cor(doc, '#F0BDBD', 'traco'); doc.setLineWidth(0.4); doc.rect(offX, y, w, h, 'D');
           } catch (e) {
-            doc.setFontSize(8); doc.text('(falha ao renderizar a foto)', x + 3, y + imgAlt / 2);
+            fotoIndisponivel(doc, offX, y, w, h);
           }
           doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(120, 130, 140);
           doc.text('Evidência NC ' + (k + 1) + '.' + (i + j + 1) + (f.legenda ? ' — ' + f.legenda : ''), x, y + imgAlt + 3.8);
@@ -378,6 +379,25 @@ const PDFGEN = (function () {
       }
     }
     return y + 2;
+  }
+
+  /** Moldura no lugar de uma foto que não pôde ser lida no aparelho. */
+  function fotoIndisponivel(doc, x, y, w, h) {
+    doc.setFillColor(243, 245, 247);
+    doc.setDrawColor(201, 210, 218);
+    doc.setLineWidth(0.3);
+    if (doc.setLineDashPattern) doc.setLineDashPattern([1.5, 1.2], 0);
+    doc.rect(x, y, w, h, 'FD');
+    if (doc.setLineDashPattern) doc.setLineDashPattern([], 0);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(74, 87, 99);
+    doc.text('Foto indisponível', x + w / 2, y + h / 2 - 1, { align: 'center' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(107, 120, 132);
+    doc.text('não foi possível ler a imagem neste aparelho', x + w / 2, y + h / 2 + 4, { align: 'center' });
+    doc.setTextColor(20, 24, 31);
+  }
+
+  function formatoImagem(dataUrl) {
+    return /^data:image\/png/.test(dataUrl) ? 'PNG' : (/^data:image\/webp/.test(dataUrl) ? 'WEBP' : 'JPEG');
   }
 
   async function galeria(doc, y, fotos) {
@@ -394,20 +414,20 @@ const PDFGEN = (function () {
       for (let j = 0; j < 2 && i + j < fotos.length; j++) {
         const f = fotos[i + j];
         const x = M + j * (colLarg + 8);
+        const prop = (f.largura && f.altura) ? f.largura / f.altura : 4 / 3;
+        let w = colLarg, h = w / prop;
+        if (h > imgAlt) { h = imgAlt; w = h * prop; }
+        const offX = x + (colLarg - w) / 2;
+        const offY = y + (imgAlt - h) / 2;
         try {
+          if (!f.blob) throw new Error('indisponível');
           const dataUrl = await DB.blobParaDataUrl(f.blob);
-          const prop = (f.largura && f.altura) ? f.largura / f.altura : 4 / 3;
-          let w = colLarg, h = w / prop;
-          if (h > imgAlt) { h = imgAlt; w = h * prop; }
-          const offX = x + (colLarg - w) / 2;
-          const offY = y + (imgAlt - h) / 2;
-          doc.addImage(dataUrl, 'JPEG', offX, offY, w, h, undefined, 'FAST');
+          doc.addImage(dataUrl, formatoImagem(dataUrl), offX, offY, w, h, undefined, 'FAST');
           doc.setDrawColor(150, 160, 170);
           doc.setLineWidth(0.3);
           doc.rect(offX, offY, w, h, 'D');
         } catch (e) {
-          doc.setFontSize(8);
-          doc.text('(falha ao renderizar a foto)', x + 3, y + imgAlt / 2);
+          fotoIndisponivel(doc, offX, offY, w, h);
         }
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);

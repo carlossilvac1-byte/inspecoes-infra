@@ -9,7 +9,7 @@
  * altere VERSAO abaixo — é o que dispara a limpeza dos caches antigos.
  * ===================================================================== */
 
-const VERSAO = 'v4.5.0';
+const VERSAO = 'v4.5.1';
 const CACHE = 'inspecao-infra-' + VERSAO;
 const CACHE_MAPA = 'inspecao-infra-mapa-v2';      // não muda com a versão: preserva as imagens
 const LIMITE_MAPA = 1500;                      // ~25 MB no máximo

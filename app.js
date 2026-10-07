@@ -537,6 +537,11 @@ const APP = (function () {
   function aoMudarSync(evento, resumo) {
     if (evento === 'inicio') { estado.sincronizando = true; atualizarBadges(); return; }
     if (evento === 'rede') { atualizarBadges(); return; }
+    if (evento === 'fotosIndisponiveis') {
+      aviso((resumo.qtd === 1 ? '1 foto se perdeu' : resumo.qtd + ' fotos se perderam') +
+            ' neste aparelho antes do envio e não foi possível enviá-las. Abra a inspeção, exclua a foto marcada como "indisponível" e tire novamente.', 'alerta', 0);
+      return;
+    }
     if (evento !== 'fim') return;
     estado.sincronizando = false;
     estado.ultimoResumo = resumo || null;
@@ -1009,6 +1014,7 @@ const APP = (function () {
     const reg = await DB.obterInspecao(id);
     if (!reg) { aviso('Registro não encontrado ou de outro usuário.', 'erro'); return; }
     if (!DB.ehMeu(reg)) { aviso('Somente quem realizou a inspeção pode editá-la.', 'alerta', 6); return; }
+    await garantirFotos(reg);           // recupera da base fotos danificadas no aparelho
     estado.registro = reg;
     estado.ehNovo = false;
     estado.salvo = false;
@@ -1106,6 +1112,18 @@ const APP = (function () {
   /* ---------------------------------------------------------------
    * Fotos
    * ------------------------------------------------------------- */
+  /** Endereço da imagem da foto; se ela se perdeu no aparelho, um aviso visual no lugar. */
+  const FOTO_INDISPONIVEL = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">' +
+    '<rect width="400" height="300" fill="#F3F5F7"/><rect x="1" y="1" width="398" height="298" fill="none" stroke="#C9D2DA" stroke-dasharray="8 6" stroke-width="2"/>' +
+    '<g fill="none" stroke="#8A97A3" stroke-width="6" stroke-linejoin="round"><rect x="160" y="95" width="80" height="60" rx="8"/><circle cx="200" cy="125" r="16"/></g>' +
+    '<text x="200" y="195" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#4A5763" text-anchor="middle">Foto indisponível</text>' +
+    '<text x="200" y="222" font-family="Arial, sans-serif" font-size="15" fill="#6B7884" text-anchor="middle">exclua e tire novamente</text></svg>');
+  function srcFoto(f) {
+    if (!f || f.indisponivel || !f.blob) return FOTO_INDISPONIVEL;
+    return URL.createObjectURL(f.blob);
+  }
+
   async function adicionarArquivos(lista, vinculo) {
     if (!lista || !lista.length) return;
     const arquivos = Array.prototype.slice.call(lista);
@@ -1143,7 +1161,7 @@ const APP = (function () {
     for (const f of fotos) {
       const div = document.createElement('div');
       div.className = 'foto-item';
-      const url = URL.createObjectURL(f.blob);
+      const url = srcFoto(f);
       div.innerHTML =
         '<img src="' + url + '" alt="Foto ' + f.ordem + '">' +
         '<div class="foto-acoes">' +
@@ -1178,7 +1196,7 @@ const APP = (function () {
       doTema.forEach(f => {
         const fig = document.createElement('div');
         fig.className = 'evid-foto';
-        const url = URL.createObjectURL(f.blob);
+        const url = srcFoto(f);
         fig.innerHTML = '<img src="' + url + '" alt="Evidência"><button type="button" aria-label="Excluir foto">✕</button>';
         fig.querySelector('img').onload = () => URL.revokeObjectURL(url);
         fig.querySelector('button').addEventListener('click', async () => {
@@ -1403,7 +1421,7 @@ const APP = (function () {
           '<span class="nc-item">' + escapar(n.item) + '</span></div>' +
           '<p class="nc-perg">' + escapar(n.q.pergunta) + ' <b>NÃO</b></p>' +
           (n.q.obs ? '<p class="nc-obs">' + escapar(n.q.obs) + '</p>' : '') +
-          (fs.length ? '<div class="galeria">' + fs.map(f => '<figure><img src="' + URL.createObjectURL(f.blob) + '" alt="Evidência"></figure>').join('') + '</div>'
+          (fs.length ? '<div class="galeria">' + fs.map(f => '<figure><img src="' + srcFoto(f) + '" alt="Evidência"></figure>').join('') + '</div>'
                      : '<p class="apoio pequena">Sem foto vinculada.</p>') + '</div>';
       });
       html += '</div>';
@@ -1413,10 +1431,10 @@ const APP = (function () {
     if (!fotosGerais.length) html += '<p class="apoio pequena">Nenhuma foto geral anexada.</p>';
     else {
       html += '<div class="galeria">';
-      fotosGerais.forEach(f => {
-        const url = URL.createObjectURL(f.blob);
-        html += '<figure><img src="' + url + '" alt="Foto ' + f.ordem + '">' +
-                '<figcaption>Foto ' + f.ordem + (f.legenda ? ' — ' + escapar(f.legenda) : '') +
+      fotosGerais.forEach((f, i) => {
+        const url = srcFoto(f);
+        html += '<figure><img src="' + url + '" alt="Foto ' + (i + 1) + '">' +
+                '<figcaption>Foto ' + (i + 1) + (f.legenda ? ' — ' + escapar(f.legenda) : '') +
                 '</figcaption></figure>';
       });
       html += '</div>';
@@ -1462,7 +1480,7 @@ const APP = (function () {
   /** Inspeção recebida da base: baixa as fotos que ainda não estão no aparelho. */
   async function garantirFotos(reg) {
     if (!SYNC.ativo() || !reg || !Array.isArray(reg.fotosRemotas) || !reg.fotosRemotas.length) return;
-    const temLocal = (await DB.listarFotos(reg.id)).length;
+    const temLocal = (await DB.listarFotos(reg.id)).filter(f => !f.indisponivel).length;
     if (temLocal >= reg.fotosRemotas.length || !navigator.onLine) return;
     try { await SYNC.baixarFotos(reg); } catch (e) { /* segue sem as fotos */ }
   }

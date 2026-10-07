@@ -61,6 +61,7 @@ const SYNC = (function () {
 
   async function enviarFotos(reg, fotos) {
     const meta = [];
+    let semFoto = 0;
     for (const f of fotos) {
       const nome = String(f.ordem).padStart(2, '0') + '_' + String(f.id).slice(0, 8) + '.jpg';
       const caminho = reg.lote + '/' + reg.id + '/' + nome;
@@ -69,11 +70,14 @@ const SYNC = (function () {
         meta.push({ caminho: f.caminhoRemoto, legenda: f.legenda || '', ordem: f.ordem, bytes: f.bytes || 0, vinculo: f.vinculo || null });
         continue;
       }
+      // Foto perdida no aparelho e nunca enviada: não há o que mandar.
+      if (f.indisponivel || !f.dados || !DB.imagemValida(f.dados)) { semFoto++; continue; }
       const url = base() + '/storage/v1/object/' + S().bucketFotos + '/' +
                   caminho.split('/').map(encodeURIComponent).join('/');
       const cab = await AUTH.cabecalhosAutenticados({ 'x-upsert': 'true' });
-      cab['Content-Type'] = 'image/jpeg';
-      const r = await fetchTimeout(url, { method: 'POST', headers: cab, body: f.blob }, 90000);
+      cab['Content-Type'] = f.tipo || 'image/jpeg';
+      // Envia os BYTES (não o Blob): no iPhone um Blob vindo do banco pode estar ilegível.
+      const r = await fetchTimeout(url, { method: 'POST', headers: cab, body: new Uint8Array(f.dados) }, 90000);
       if (!r.ok) {
         const t = await r.text().catch(() => '');
         if (r.status === 401) throw new Error('SESSAO_EXPIRADA');
@@ -84,6 +88,7 @@ const SYNC = (function () {
       }
       meta.push({ caminho: caminho, legenda: f.legenda || '', ordem: f.ordem, bytes: f.bytes || 0, vinculo: f.vinculo || null });
     }
+    if (semFoto) notificar('fotosIndisponiveis', { inspecaoId: reg.id, qtd: semFoto });
     return meta;
   }
 
@@ -190,7 +195,8 @@ const SYNC = (function () {
   async function baixarFotos(reg) {
     if (!ativo() || !reg || !Array.isArray(reg.fotosRemotas) || !reg.fotosRemotas.length) return 0;
     const locais = await DB.listarFotos(reg.id);
-    const faltam = reg.fotosRemotas.filter(m => !locais.some(f => f.caminhoRemoto === m.caminho));
+    // Faltam: as que não estão no aparelho OU estão lá danificadas (defeito do iOS).
+    const faltam = reg.fotosRemotas.filter(m => !locais.some(f => f.caminhoRemoto === m.caminho && !f.indisponivel));
     if (!faltam.length || !navigator.onLine) return 0;
     let n = 0;
     for (const m of faltam) {
@@ -202,7 +208,7 @@ const SYNC = (function () {
         const r = await fetchTimeout(url, { headers: cab }, 60000);
         if (!r.ok) continue;
         const blob = await r.blob();
-        await DB.salvarFotoRecebida(reg.id, m, blob);
+        await DB.salvarFotoRecebida(reg.id, m, blob);   // valida a imagem antes de gravar
         n++;
       } catch (e) { /* segue com as demais */ }
     }
