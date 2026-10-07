@@ -1583,3 +1583,8 @@ input:disabled, select:disabled { background: #F4F7F9; color: #94A3B0; border-co
   .nc-chip { padding: 6px 10px; font-size: 13px; }
 }
 .nc-j-fotos .evid-foto { border-color: #9CCBA4; background: #F3FAF4; }
+
+/* Painel: tratativa das NCs (concluídas x em aberto) */
+.bi-kpi.k-concl .bi-kpi-val, .bi-kpi.k-concl.k-alerta .bi-kpi-val, .bi-kpi.k-concl.k-atencao .bi-kpi-val { color: #13795B; }
+.bi-venc { color: var(--bi-nc, #D64545); font-weight: 700; }
+.bi-rosca-leg li i.anel.anel-ok { border-color: #13795B; }

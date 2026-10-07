@@ -911,22 +911,27 @@ const PDFGEN = (function () {
 
     // ---- KPIs (6) ---------------------------------------------------
     const yK = 20, hK = 19, gap = 3.5, wK = (LW - gap * 5) / 6;
+    const tr = d.tratativa || { total: 0, abertas: 0, vencidas: 0, concluidas: 0, pctConcluidas: 0, pctNoPrazo: null };
     const kpis = [
-      ['Inspeções no período', String(d.total), (d.totalAcumulado || d.total) + ' no acumulado', OK],
+      ['Inspeções no período', String(d.total), (d.totalAcumulado || d.total) + ' no acumulado - ' + d.fotos + ' foto(s)', OK],
       ['Com não conformidade', d.pctNC + '%', d.comNC + ' de ' + d.total + ' inspeções', d.comNC ? NC : OK],
-      ['NCs em aberto (acumulado)', String(d.ncAcumuladas), 'em toda a base', d.ncAcumuladas ? NC : OK],
+      ['NCs em aberto', String(tr.abertas),
+        tr.total ? (tr.vencidas ? tr.vencidas + ' vencida(s)' : 'nenhuma vencida') + ' - de ' + tr.total + ' apontadas' : 'nenhuma NC apontada',
+        tr.vencidas ? NC : (tr.abertas ? '#E8A317' : OK), tr.vencidas ? NC : (tr.abertas ? '#A86F00' : TX)],
+      ['NCs concluídas', String(tr.concluidas),
+        tr.total ? 'de ' + tr.total + ' (' + tr.pctConcluidas + '%)' + (tr.pctNoPrazo !== null ? ' - ' + tr.pctNoPrazo + '% no prazo' : '') : 'nenhuma NC apontada',
+        OK, '#13795B'],
       ['Canteiros inspecionados', d.pctCobertura + '%', d.canteirosInspecionados + ' de ' + d.totalCanteiros + ' (cobertura)', OK],
       ['Última inspeção', d.ultimaData ? dataBR(d.ultimaData) : '—',
         d.diasUltima === null ? 'nenhuma registrada' : (d.diasUltima === 0 ? 'hoje' : 'há ' + d.diasUltima + ' dia(s)'),
-        d.diasUltima !== null && d.diasUltima > CONFIG.limites.diasSemaforoVerde ? '#E8A317' : OK],
-      ['Fotos registradas', String(d.fotos), 'evidências no período', OK]
+        d.diasUltima !== null && d.diasUltima > CONFIG.limites.diasSemaforoVerde ? '#E8A317' : OK]
     ];
     kpis.forEach((k, i) => {
       const x = MG + i * (wK + gap);
       cartao(x, yK, wK, hK);
       fill(k[3]); doc.rect(x, yK + 1, 1.1, hK - 2, 'F');
       fonte(6.6, 'bold'); txt(TX2); doc.text(corta(k[0].toUpperCase(), wK - 6), x + 3.5, yK + 5.2);
-      fonte(k[1].length > 7 ? 13 : 16, 'bold'); txt(k[3] === NC ? NC : TX); doc.text(k[1], x + 3.5, yK + 12.6);
+      fonte(k[1].length > 7 ? 13 : 16, 'bold'); txt(k[4] || (k[3] === NC ? NC : TX)); doc.text(k[1], x + 3.5, yK + 12.6);
       fonte(6.4, 'normal'); txt(TX2); doc.text(corta(k[2], wK - 6), x + 3.5, yK + 16.6);
     });
 
@@ -1008,9 +1013,15 @@ const PDFGEN = (function () {
       });
       stroke(BD); doc.setLineWidth(0.2); doc.setLineDashPattern([0.8, 0.8], 0);
       doc.line(lx, y2 + 32, lx + lw, y2 + 32); doc.setLineDashPattern([], 0);
+      // Tratativa das NCs (acumulado da base visível)
       stroke(NC); doc.setLineWidth(0.6); fill('#FFFFFF'); doc.circle(lx + 1.3, y2 + 37 - 1.1, 1.1, 'FD');
-      fonte(7, 'bold'); txt(TX); doc.text('NC em aberto (acum.)', lx + 4, y2 + 37);
-      doc.text(String(d.ncAcumuladas), lx + lw, y2 + 37, { align: 'right' });
+      fonte(7, 'bold'); txt(TX); doc.text('NCs em aberto', lx + 4, y2 + 37);
+      doc.text(String(tr.abertas), lx + lw - 9, y2 + 37, { align: 'right' });
+      if (tr.vencidas) { fonte(6, 'bold'); txt(NC); doc.text('(' + tr.vencidas + ' venc.)', lx + lw, y2 + 37, { align: 'right' }); }
+      stroke('#13795B'); doc.setLineWidth(0.6); fill('#FFFFFF'); doc.circle(lx + 1.3, y2 + 44 - 1.1, 1.1, 'FD');
+      fonte(7, 'bold'); txt(TX); doc.text('NCs concluídas', lx + 4, y2 + 44);
+      doc.text(String(tr.concluidas), lx + lw - 9, y2 + 44, { align: 'right' });
+      fonte(6, 'normal'); txt(TX2); doc.text('(' + tr.pctConcluidas + '%)', lx + lw, y2 + 44, { align: 'right' });
     })();
 
     cartao(x2c, y2, w2c, h2, 'Canteiros com mais não conformidades');

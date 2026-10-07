@@ -83,6 +83,27 @@ const PAINEL = (function () {
     const comNC = noPeriodo.filter(r => r.naoConformidade === 'Sim');
     const ncAcumuladas = todas.filter(r => r.naoConformidade === 'Sim');
 
+    // --- Tratativa das NCs (cada resposta NÃO do checklist é uma NC) ----
+    // Acumulado de toda a base visível, com os mesmos filtros de lote/empresa.
+    const ncLista = window.TRAT ? (await TRAT.listarNCs())
+      .filter(n => (!filtro.lote || n.lote === filtro.lote) && (!filtro.empresa || n.empresa === filtro.empresa)) : [];
+    const hojeNc = hojeISO();
+    const ncConcl = ncLista.filter(n => n.situacao === 'concluida');
+    const ncAbertas = ncLista.filter(n => n.situacao !== 'concluida');
+    const ncVencidas = ncAbertas.filter(n => n.trat && n.trat.dataPrevista && n.trat.dataPrevista < hojeNc);
+    const ncComPrazo = ncConcl.filter(n => n.trat && n.trat.dataPrevista);
+    const ncNoPrazo = ncComPrazo.filter(n => n.trat.dataConclusao <= n.trat.dataPrevista);
+    const tratativa = {
+      total: ncLista.length,
+      abertas: ncAbertas.length,
+      andamento: ncAbertas.filter(n => n.situacao === 'andamento').length,
+      vencidas: ncVencidas.length,
+      concluidas: ncConcl.length,
+      pctConcluidas: ncLista.length ? Math.round(ncConcl.length * 100 / ncLista.length) : 0,
+      pctNoPrazo: ncComPrazo.length ? Math.round(ncNoPrazo.length * 100 / ncComPrazo.length) : null,
+      concluidasNoPeriodo: ncConcl.filter(n => n.trat.dataConclusao >= iv.de && n.trat.dataConclusao <= iv.ate).length
+    };
+
     // --- Cobertura de canteiros -----------------------------------
     const canteirosCadastrados = [];
     lotesUsuario.forEach(l => {
@@ -214,6 +235,7 @@ const PAINEL = (function () {
       comNC: comNC.length,
       pctNC: noPeriodo.length ? Math.round(comNC.length * 100 / noPeriodo.length) : 0,
       ncAcumuladas: ncAcumuladas.length,
+      tratativa: tratativa,
       canteirosInspecionados: inspecionadosNoPeriodo,
       totalCanteiros: totalCanteiros,
       pctCobertura: totalCanteiros ? Math.round(inspecionadosNoPeriodo * 100 / totalCanteiros) : 0,
@@ -266,18 +288,25 @@ const PAINEL = (function () {
   }
 
   function desenharKpis(d) {
+    const t = d.tratativa;
+    const subAbertas = !t.total ? 'nenhuma NC apontada'
+      : (t.vencidas ? '<b class="bi-venc">' + t.vencidas + ' vencida(s)</b>' : 'nenhuma vencida') +
+        (t.andamento ? ' • ' + t.andamento + ' em andamento' : '') + ' • de ' + t.total + ' apontadas';
+    const subConcl = !t.total ? 'nenhuma NC apontada'
+      : 'de ' + t.total + ' (' + t.pctConcluidas + '%)' + (t.pctNoPrazo !== null ? ' • ' + t.pctNoPrazo + '% no prazo' : '') +
+        (t.concluidasNoPeriodo ? ' • ' + t.concluidasNoPeriodo + ' no período' : '');
     $('#bi-kpis').innerHTML =
-      kpi('prancheta', 'Inspeções no período', d.total, d.totalAcumulado + ' no acumulado') +
+      kpi('prancheta', 'Inspeções no período', d.total, d.totalAcumulado + ' no acumulado • ' + d.fotos + ' foto(s)') +
       kpi('escudo', 'Com não conformidade', d.pctNC + '%', d.comNC + ' de ' + d.total + ' inspeções',
           d.comNC ? 'k-alerta' : '') +
-      kpi('documento', 'NCs em aberto (acumulado)', d.ncAcumuladas, 'em ' + d.totalAcumulado + ' inspeções registradas',
-          d.ncAcumuladas ? 'k-alerta' : '') +
+      kpi('documento', 'NCs em aberto', t.abertas, subAbertas,
+          t.vencidas ? 'k-alerta' : (t.abertas ? 'k-atencao' : '')) +
+      kpi('ok', 'NCs concluídas', t.concluidas, subConcl, 'k-concl') +
       kpi('capacete', 'Canteiros inspecionados', d.pctCobertura + '%',
           d.canteirosInspecionados + ' de ' + d.totalCanteiros + ' canteiros (cobertura)') +
       kpi('calendario', 'Última inspeção', d.ultimaData ? dataBR(d.ultimaData) : '—',
           d.diasUltima === null ? 'nenhuma registrada' : (d.diasUltima === 0 ? 'hoje' : 'há ' + d.diasUltima + ' dia(s)'),
-          d.diasUltima !== null && d.diasUltima > CONFIG.limites.diasSemaforoVerde ? 'k-atencao' : '') +
-      kpi('camera', 'Fotos registradas', d.fotos, 'evidências no período');
+          d.diasUltima !== null && d.diasUltima > CONFIG.limites.diasSemaforoVerde ? 'k-atencao' : '');
   }
 
   /* ===================================================================
@@ -339,7 +368,12 @@ const PAINEL = (function () {
       '<ul class="bi-rosca-leg">' +
         '<li data-dica="Inspeções sem não conformidade no período"><i style="background:' + COR_OK + '"></i>Conforme<b>' + ok + ' <small>(' + pct(ok, total) + '%)</small></b></li>' +
         '<li data-dica="Inspeções com não conformidade no período"><i style="background:' + COR_NC + '"></i>Com NC<b>' + nc + ' <small>(' + pct(nc, total) + '%)</small></b></li>' +
-        '<li class="sep" data-dica="Inspeções com NC em toda a base visível"><i class="anel"></i>NC em aberto (acumulado)<b>' + d.ncAcumuladas + '</b></li>' +
+        '<li class="sep" data-dica="NCs ainda sem conclusão (toda a base visível)' + (d.tratativa.vencidas ? ' — ' + d.tratativa.vencidas + ' com prazo vencido' : '') +
+          '"><i class="anel"></i>NCs em aberto<b>' + d.tratativa.abertas +
+          (d.tratativa.vencidas ? ' <small class="bi-venc">(' + d.tratativa.vencidas + ' venc.)</small>' : '') + '</b></li>' +
+        '<li data-dica="NCs com tratativa concluída (toda a base visível)' + (d.tratativa.pctNoPrazo !== null ? ' — ' + d.tratativa.pctNoPrazo + '% no prazo' : '') +
+          '"><i class="anel anel-ok"></i>NCs concluídas<b>' + d.tratativa.concluidas +
+          (d.tratativa.total ? ' <small>(' + d.tratativa.pctConcluidas + '%)</small>' : '') + '</b></li>' +
       '</ul></div>';
   }
 

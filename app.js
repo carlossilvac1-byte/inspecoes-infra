@@ -565,6 +565,7 @@ const APP = (function () {
     if (resumo && resumo.enviados && estado.tela === 'tela-historico') carregarHistorico();
     if (window.TRAT && resumo && (resumo.recebidas || (resumo.tratativas && resumo.tratativas.recebidos))) {
       if (estado.tela === 'tela-nc') TRAT.montar(); else TRAT.atualizarBadge();
+      if (estado.tela === 'tela-painel') PAINEL.montar();
     }
     if (resumo && resumo.cronograma && estado.tela === 'tela-cronograma' &&
         (resumo.cronograma.recebidos || resumo.cronograma.semTabela)) CRONO.montar();
