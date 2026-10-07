@@ -237,6 +237,11 @@ const SYNC = (function () {
         try { resumo.cronograma = await CRONO.sincronizar(); }
         catch (e) { if (String(e.message) === 'SESSAO_EXPIRADA') throw e; resumo.cronograma = { erro: e.message }; }
       }
+      // Tratativas das NCs: idem, falha aqui não trava as inspeções.
+      if (window.TRAT) {
+        try { resumo.tratativas = await TRAT.sincronizar(); }
+        catch (e) { if (String(e.message) === 'SESSAO_EXPIRADA') throw e; resumo.tratativas = { erro: e.message }; }
+      }
       await DB.kvSet('ultimaSincronizacao:' + AUTH.usuarioId(), new Date().toISOString());
       try { AUTH.informarSituacao((await DB.listarPendentes()).length); } catch (e) { /* informativo */ }
     } catch (e) {
@@ -315,7 +320,7 @@ const SYNC = (function () {
               postgres_changes: [
                 { event: '*', schema: 'public', table: S().tabelaInspecoes },
                 { event: '*', schema: 'public', table: 'cronograma' }
-              ]
+              ].concat(window.TRAT && TRAT.tabelaDisponivel() ? [{ event: '*', schema: 'public', table: 'nc_tratativas' }] : [])
             },
             access_token: token
           }

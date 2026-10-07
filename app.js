@@ -75,7 +75,8 @@ const APP = (function () {
     if (TELAS_PUBLICAS.indexOf(id) === -1 && !AUTH.autenticado()) id = 'tela-login';
     estado.tela = id;
     $$('.tela').forEach(t => { t.hidden = (t.id !== id); });
-    $$('.nav-item').forEach(b => b.classList.toggle('ativa', b.dataset.ir === id));
+    $$('.nav-item').forEach(b => b.classList.toggle('ativa', b.dataset.ir === id ||
+      (id === 'tela-sync' && b.dataset.ir === 'tela-mais')));
     $('#navegacao').hidden = TELAS_VISUAL_ACESSO.indexOf(id) !== -1;
     document.body.classList.toggle('modo-publico', TELAS_VISUAL_ACESSO.indexOf(id) !== -1);
     window.scrollTo(0, 0);
@@ -85,6 +86,7 @@ const APP = (function () {
     if (id === 'tela-mais') montarTelaMais();
     if (id === 'tela-admin') carregarUsuarios();
     if (id === 'tela-cronograma' && window.CRONO) CRONO.montar();
+    if (id === 'tela-nc' && window.TRAT) TRAT.montar();
     if (TELAS_VISUAL_ACESSO.indexOf(id) !== -1) $('#faixa-fila').hidden = true;
     else if (window.SYNC && SYNC.ativo()) atualizarBadges();
   }
@@ -263,7 +265,8 @@ const APP = (function () {
    * registrado neste aparelho.
    * =================================================================== */
   async function atualizarBadges() {
-    if (!AUTH.autenticado()) { $('#txt-rede').textContent = '—'; return; }
+    if (!AUTH.autenticado()) { $('#txt-rede').textContent = '—'; const nb = $('#nav-nc-badge'); if (nb) nb.hidden = true; return; }
+    if (window.TRAT) TRAT.atualizarBadge();
     const lista = await DB.listarInspecoes({});
     const badge = $('#badge-rede');
     badge.classList.remove('offline', 'erro', 'online');
@@ -560,6 +563,9 @@ const APP = (function () {
       if (estado.tela === 'tela-painel') PAINEL.montar();
     }
     if (resumo && resumo.enviados && estado.tela === 'tela-historico') carregarHistorico();
+    if (window.TRAT && resumo && (resumo.recebidas || (resumo.tratativas && resumo.tratativas.recebidos))) {
+      if (estado.tela === 'tela-nc') TRAT.montar(); else TRAT.atualizarBadge();
+    }
     if (resumo && resumo.cronograma && estado.tela === 'tela-cronograma' &&
         (resumo.cronograma.recebidos || resumo.cronograma.semTabela)) CRONO.montar();
     atualizarBadges();
@@ -1413,16 +1419,33 @@ const APP = (function () {
     // Não conformidades consolidadas, cada uma com as suas fotos
     const ncs = [];
     Object.keys(ck).forEach(item => (ck[item] || []).forEach(q => { if (q.resposta === 'NÃO') ncs.push({ item: item, q: q }); }));
+    const trats = (ncs.length && window.TRAT && !r.excluido) ? await TRAT.daInspecao(id).catch(() => ({})) : {};
+    const hojeNc = hojeISO();
     if (ncs.length) {
       html += '<h2 style="margin-top:18px">Não conformidades identificadas (' + ncs.length + ')</h2><div class="nc-lista">';
       ncs.forEach((n, k) => {
         const fs = fotos.filter(f => f.vinculo && f.vinculo.item === n.item && f.vinculo.pergunta === n.q.pergunta);
+        const ncId = window.TRAT ? TRAT.idNC(id, n.item, n.q.pergunta) : '';
+        const tr = trats[ncId] || null;
+        const t = tr ? tr.trat : null;
+        const sit = t ? t.situacao : 'aberta';
+        const pz = window.TRAT ? TRAT.prazo({ situacao: sit, trat: t }, hojeNc) : { cls: 'sem', txt: '' };
+        const blocoTrat = !window.TRAT || r.excluido ? '' :
+          '<div class="nc-trat">' +
+          '<div class="nc-trat-cab"><span class="nc-t-sit s-' + sit + '">' + TRAT.rotuloSituacao(sit) + '</span>' +
+          '<span class="nc-t-prazo p-' + pz.cls + '">' + escapar(pz.txt) + '</span>' +
+          '<button type="button" class="btn btn-secundario nc-trat-bt" data-nc-abrir="' + escapar(ncId) + '">' +
+          (sit === 'concluida' ? 'Ver tratativa' : 'Tratar NC') + '</button></div>' +
+          (t && t.acao ? '<p class="nc-trat-l"><b>Ação:</b> ' + escapar(t.acao) + (t.responsavelAcao ? ' — ' + escapar(t.responsavelAcao) : '') + '</p>' : '') +
+          (t && t.retorno ? '<p class="nc-trat-l"><b>Retorno:</b> ' + escapar(t.retorno) + '</p>' : '') +
+          (tr && tr.fotos.length ? '<div class="galeria galeria-retorno">' + tr.fotos.map(f => '<figure><img src="' + srcFoto(f) + '" alt="Retorno"><figcaption>Retorno</figcaption></figure>').join('') + '</div>' : '') +
+          '</div>';
         html += '<div class="nc-card"><div class="nc-card-cab"><span class="nc-num">NC ' + (k + 1) + '</span>' +
           '<span class="nc-item">' + escapar(n.item) + '</span></div>' +
           '<p class="nc-perg">' + escapar(n.q.pergunta) + ' <b>NÃO</b></p>' +
           (n.q.obs ? '<p class="nc-obs">' + escapar(n.q.obs) + '</p>' : '') +
           (fs.length ? '<div class="galeria">' + fs.map(f => '<figure><img src="' + srcFoto(f) + '" alt="Evidência"></figure>').join('') + '</div>'
-                     : '<p class="apoio pequena">Sem foto vinculada.</p>') + '</div>';
+                     : '<p class="apoio pequena">Sem foto vinculada.</p>') + blocoTrat + '</div>';
       });
       html += '</div>';
     }
@@ -2002,6 +2025,11 @@ const APP = (function () {
       else mostrarTela(b.dataset.ir);
     }));
     $('#badge-rede').addEventListener('click', () => mostrarTela('tela-sync'));
+    $('#detalhe-conteudo').addEventListener('click', e => {
+      const b = e.target.closest('[data-nc-abrir]');
+      if (b && window.TRAT) TRAT.abrir(b.dataset.ncAbrir);
+    });
+    $$('[data-ir-tela]').forEach(b => b.addEventListener('click', () => mostrarTela(b.dataset.irTela)));
 
     // Acesso
     $('#btn-login').addEventListener('click', fazerLogin);

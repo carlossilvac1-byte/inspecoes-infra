@@ -66,6 +66,13 @@ const DB = (function () {
     cronograma: 'id, usuarioId, ano, lote, status'
   });
 
+  // v5 — tratativa das não conformidades (ação, prazo, conclusão, retorno)
+  //      e as fotos do retorno (gravadas em BYTES, como as da inspeção).
+  db.version(5).stores({
+    tratativas: 'id, inspecaoId, lote, situacao, status',
+    fotosNc:    'id, ncId, inspecaoId'
+  });
+
   // ---------------------------------------------------------------
   // Utilitários
   // ---------------------------------------------------------------
@@ -999,6 +1006,7 @@ const DB = (function () {
     marcarFotoRemota: marcarFotoRemota,
     imagemValida: imagemValida,
     lerBytes: lerBytes,
+    prepararFoto: prepararFoto,
     podeVer: podeVer,
     ehMeu: ehMeu,
     obterInspecao: obterInspecao,

@@ -563,6 +563,50 @@
   <!-- ===================================================================
        TELA — PAINEL DE INDICADORES
        ================================================================ -->
+  <!-- ============================================================
+       NÃO CONFORMIDADES — tratativa e retorno
+       ============================================================ -->
+  <section class="tela tela-nc" id="tela-nc" hidden>
+    <div class="cartao cr-topo">
+      <div class="cr-titulo">
+        <div>
+          <h1>Não conformidades</h1>
+          <p class="apoio pequena">NCs apontadas nas inspeções: defina a ação, o prazo e registre o retorno com foto.</p>
+        </div>
+        <button type="button" class="btn btn-neutro nc-exportar" id="nc-exportar" title="Exportar a lista para Excel / Power BI">⤓ Excel</button>
+      </div>
+
+      <div class="cr-kpis nc-kpis">
+        <div class="cr-kpi k-and"><b id="nc-k-abertas">0</b><span>Em aberto</span></div>
+        <div class="cr-kpi k-atr"><b id="nc-k-vencidas">0</b><span>Vencidas</span></div>
+        <div class="cr-kpi k-prog"><b id="nc-k-semprazo">0</b><span>Sem prazo</span></div>
+        <div class="cr-kpi k-real"><b id="nc-k-concluidas">0</b><span>Concluídas</span></div>
+        <div class="cr-kpi k-ader"><b id="nc-k-noprazo">—</b><span>Concluídas no prazo</span></div>
+        <div class="cr-kpi"><b id="nc-k-tempo">—</b><span>Tempo médio de tratativa</span></div>
+      </div>
+      <div class="cr-progresso"><div class="cr-barra"><i id="nc-barra"></i></div>
+        <span id="nc-txt-progresso" class="apoio pequena"></span></div>
+
+      <div class="nc-filtros" role="tablist" aria-label="Situação">
+        <button type="button" class="nc-chip ativa" data-nc-filtro="abertas">Em aberto <i>0</i></button>
+        <button type="button" class="nc-chip c-venc" data-nc-filtro="vencidas">Vencidas <i>0</i></button>
+        <button type="button" class="nc-chip" data-nc-filtro="semprazo">Sem prazo <i>0</i></button>
+        <button type="button" class="nc-chip" data-nc-filtro="concluidas">Concluídas <i>0</i></button>
+        <button type="button" class="nc-chip" data-nc-filtro="todas">Todas <i>0</i></button>
+      </div>
+      <div class="cr-filtros">
+        <label class="campo"><span class="rotulo">Lote</span><select id="nc-lote"></select></label>
+        <label class="campo"><span class="rotulo">Buscar</span>
+          <input type="search" id="nc-busca" placeholder="Canteiro, empresa, pergunta, responsável…" autocomplete="off"></label>
+      </div>
+      <p class="apoio pequena cr-aviso-base" id="nc-aviso-base" hidden>
+        A base central ainda não tem a tabela de tratativas. As tratativas ficam salvas neste aparelho e
+        sobem automaticamente assim que o administrador rodar o script <b>05-nao-conformidades.sql</b>.
+      </p>
+    </div>
+    <div id="nc-lista" class="nc-lista-t"></div>
+  </section>
+
   <section class="tela tela-bi" id="tela-painel" hidden>
     <div class="bi">
       <aside class="bi-lateral" aria-label="Seções do painel">
@@ -816,6 +860,13 @@
        TELA — MAIS (conta, ajuda, administração)
        ================================================================ -->
   <section class="tela" id="tela-mais" hidden>
+    <div class="cartao cartao-atalho">
+      <div>
+        <h2>Exportar e sincronizar</h2>
+        <p class="apoio pequena">Planilha do período, backup, PDF consolidado e situação do envio à base central.</p>
+      </div>
+      <button type="button" class="btn btn-primario" data-ir-tela="tela-sync">Abrir</button>
+    </div>
     <div class="cartao">
       <h1>Minha conta</h1>
       <table class="tabela-detalhe">
@@ -878,7 +929,7 @@
             neste aparelho, inclusive as fotos.</li>
         <li><b>PDF sem internet.</b> O relatório de cada inspeção é gerado no próprio
             aparelho, em <i>Histórico → PDF</i>.</li>
-        <li><b>No fechamento do mês</b>, em <i>Exportar</i>, baixe a planilha do período
+        <li><b>No fechamento do mês</b>, em <i>Mais › Exportar</i>, baixe a planilha do período
             e o backup JSON e envie para o responsável.</li>
         <li><b>Os dados ficam só neste aparelho.</b> Antes de trocar ou formatar o
             celular, baixe o backup JSON.</li>
@@ -929,8 +980,8 @@
   <button type="button" data-ir="tela-painel" class="nav-item" aria-label="Painel">
     <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><rect x="5.5" y="11" width="3" height="6" rx="1"/><rect x="10.5" y="6" width="3" height="11" rx="1"/><rect x="15.5" y="9" width="3" height="8" rx="1"/></svg><span class="nav-rotulo">Painel</span>
   </button>
-  <button type="button" data-ir="tela-sync" class="nav-item" aria-label="Exportar">
-    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10.5l4 4 4-4"/><path d="M4.5 15v3.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V15"/></svg><span class="nav-rotulo">Exportar</span>
+  <button type="button" data-ir="tela-nc" class="nav-item" aria-label="Não conformidades">
+    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l9 15.5H3z"/><path d="M12 9.5v4.5"/><path d="M12 16.8v.2"/></svg><span class="nav-rotulo">NCs</span><span class="nav-badge" id="nav-nc-badge" hidden>0</span>
   </button>
   <button type="button" data-ir="tela-mais" class="nav-item" aria-label="Mais">
     <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg><span class="nav-rotulo">Mais</span>
@@ -947,6 +998,13 @@
 <div class="modal" id="modal-crono" hidden role="dialog" aria-modal="true">
   <div class="modal-caixa caixa-crono" id="modal-crono-conteudo"></div>
 </div>
+
+<!-- Tratativa da não conformidade -->
+<div class="modal" id="modal-nc" hidden role="dialog" aria-modal="true" aria-label="Tratativa da não conformidade">
+  <div class="modal-caixa caixa-crono caixa-nc" id="modal-nc-conteudo"></div>
+</div>
+<input type="file" id="nc-r-camera" accept="image/*" capture="environment" hidden>
+<input type="file" id="nc-r-galeria" accept="image/*" multiple hidden>
 
 <!-- Caixa de confirmação própria (confirm() é bloqueado em PWA no iOS) -->
 <div class="modal" id="modal-arquivo" hidden role="dialog" aria-modal="true" aria-labelledby="arq-titulo">
@@ -990,6 +1048,7 @@
 <script src="auth.js"></script>
 <script src="sync.js"></script>
 <script src="cronograma.js"></script>
+<script src="tratativas.js"></script>
 <script src="leaflet.js"></script>
 <script src="mapa.js"></script>
 <script src="pdf.js"></script>

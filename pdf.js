@@ -312,6 +312,7 @@ const PDFGEN = (function () {
     const ncs = [];
     Object.keys(ck).forEach(item => (ck[item] || []).forEach(q => { if (q.resposta === 'NÃO') ncs.push({ item: item, q: q }); }));
     if (!ncs.length) return y;
+    const trats = (window.TRAT && !reg.excluido) ? await TRAT.daInspecao(reg.id).catch(() => ({})) : {};
     const colLarg = (LARG - 8 - 6) / 2, imgAlt = 48;
     // Mede cada bloco antes de desenhar: o cabeçalho da NC nunca fica
     // separado da primeira linha de fotos, nem o título da seção da NC 1.
@@ -352,7 +353,6 @@ const PDFGEN = (function () {
         doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(120, 130, 140);
         doc.text('Sem foto de evidência vinculada.', M + 4.5, y + 2); doc.setTextColor(20, 24, 31);
         y += 6;
-        continue;
       }
       for (let i = 0; i < fs.length; i += 2) {
         y = novaPaginaSePreciso(doc, y, imgAlt + 8);
@@ -377,8 +377,80 @@ const PDFGEN = (function () {
         }
         y += imgAlt + 7;
       }
+      if (window.TRAT && !reg.excluido) {
+        const tr = trats[TRAT.idNC(reg.id, n.item, n.q.pergunta)];
+        y = await blocoTratativa(doc, y, k + 1, tr ? tr.trat : null, tr ? tr.fotos : []);
+      }
     }
     return y + 2;
+  }
+
+  /** Tratativa da NC: situação, prazo, ação, retorno e fotos do retorno. */
+  async function blocoTratativa(doc, y, num, t, fotosRet) {
+    const sit = t ? t.situacao : 'aberta';
+    const pz = TRAT.prazo({ situacao: sit, trat: t }, TRAT.hojeISO());
+    const larg = LARG - 8, x0 = M + 4;
+    const linhas = [];
+    if (t && t.acao) linhas.push(['Ação corretiva', t.acao]);
+    if (t && t.responsavelAcao) linhas.push(['Responsável', t.responsavelAcao]);
+    if (t && t.dataPrevista) linhas.push(['Data prevista', dataBR(t.dataPrevista)]);
+    if (t && t.dataConclusao) linhas.push(['Conclusão', dataBR(t.dataConclusao)]);
+    if (t && t.retorno) linhas.push(['Retorno', t.retorno]);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.6);
+    const med = linhas.map(l => doc.splitTextToSize(l[1], larg - 34));
+    const alt = 9 + med.reduce((a, m) => a + m.length * 3.9 + 1.2, 0) + (linhas.length ? 1 : 3);
+    y = novaPaginaSePreciso(doc, y + 1, alt + 2);
+    const corSit = sit === 'concluida' ? [46, 125, 50] : sit === 'andamento' ? [176, 112, 0] : [198, 40, 40];
+    doc.setFillColor(246, 248, 250); doc.setDrawColor(221, 227, 232); doc.setLineWidth(0.3);
+    doc.rect(x0, y, larg, alt, 'FD');
+    doc.setFillColor(corSit[0], corSit[1], corSit[2]); doc.rect(x0, y, 1.4, alt, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2); doc.setTextColor(90, 102, 114);
+    doc.text('TRATATIVA', x0 + 4, y + 5.4);
+    doc.setTextColor(corSit[0], corSit[1], corSit[2]);
+    doc.text(TRAT.rotuloSituacao(sit).toUpperCase(), x0 + 23, y + 5.4);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(pz.cls === 'vencida' || pz.cls === 'atraso' ? 198 : 90, pz.cls === 'vencida' || pz.cls === 'atraso' ? 40 : 102, pz.cls === 'vencida' || pz.cls === 'atraso' ? 40 : 114);
+    doc.text(pz.txt.replace(/ · /g, ' - '), x0 + larg - 3, y + 5.4, { align: 'right' });
+    let yy = y + 10;
+    if (!linhas.length) {
+      doc.setFont('helvetica', 'italic'); doc.setTextColor(120, 130, 140);
+      doc.text('Nenhuma ação registrada até a emissão deste relatório.', x0 + 4, yy);
+    }
+    linhas.forEach((l, i) => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.2); doc.setTextColor(26, 31, 46);
+      doc.text(l[0], x0 + 4, yy);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8.6); doc.setTextColor(20, 24, 31);
+      doc.text(med[i], x0 + 32, yy);
+      yy += med[i].length * 3.9 + 1.2;
+    });
+    doc.setTextColor(20, 24, 31);
+    y += alt + 3;
+    // Fotos do retorno, duas por linha
+    const fs = (fotosRet || []);
+    const colLarg = (LARG - 8 - 6) / 2, imgAlt = 44;
+    for (let i = 0; i < fs.length; i += 2) {
+      y = novaPaginaSePreciso(doc, y, imgAlt + 8);
+      for (let j = 0; j < 2 && i + j < fs.length; j++) {
+        const f = fs[i + j];
+        const x = M + 3 + j * (colLarg + 8);
+        const prop = (f.largura && f.altura) ? f.largura / f.altura : 4 / 3;
+        let w = colLarg, h = w / prop;
+        if (h > imgAlt) { h = imgAlt; w = h * prop; }
+        const offX = x + (colLarg - w) / 2;
+        try {
+          if (!f.blob) throw new Error('indisponível');
+          const dataUrl = await DB.blobParaDataUrl(f.blob);
+          doc.addImage(dataUrl, formatoImagem(dataUrl), offX, y, w, h, undefined, 'FAST');
+          doc.setDrawColor(46, 125, 50); doc.setLineWidth(0.4); doc.rect(offX, y, w, h, 'D');
+        } catch (e) {
+          fotoIndisponivel(doc, offX, y, w, h);
+        }
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(120, 130, 140);
+        doc.text('Retorno NC ' + num + '.' + (i + j + 1), x, y + imgAlt + 3.8);
+        doc.setTextColor(20, 24, 31);
+      }
+      y += imgAlt + 7;
+    }
+    return y;
   }
 
   /** Moldura no lugar de uma foto que não pôde ser lida no aparelho. */
